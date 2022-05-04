@@ -1,13 +1,13 @@
 use actix_web::{web, App, HttpResponse, HttpServer};
 
 #[actix_rt::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> std::io::Result<()>
+{
+    // Create HTTP listener for new agents
+    let test_listener = HttpServer::new(|| App::new().service(web::resource("/").to(|| HttpResponse::Ok())));
 
-    // Start listener
-    HttpServer::new(
-        || App::new()
-            .service(web::resource("/").to(|| HttpResponse::Ok())))
-        .bind("127.0.0.1:59090")?
+    // Start HTTP listener
+    test_listener.bind("0.0.0.0:4444")?
         .run()
         .await
 }
