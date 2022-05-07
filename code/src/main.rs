@@ -59,6 +59,7 @@ fn process_input_listeners(tag: String)
         match input.as_str().trim()
         {
             "back" => break,
+            "help" => print_help_listeners(),
             _ => ()
         }
     }
@@ -79,6 +80,7 @@ fn process_input_implants(tag: String)
         match input.as_str().trim()
         {
             "back" => break,
+            "help" => print_help_implants(),
             _ => ()
         }
     }
@@ -93,10 +95,48 @@ fn print_help_main()
         ("listeners", "Manage listeners"),
     ];
 
-    println!("{0: <20}{1}", "Command", "Description");
+    println!("\n{0: <20}{1}", "Command", "Description");
     println!("{0: <20}{1}", "-------", "-----------");
 
     for item in help_items {
         println!("{0: <20}{1}", item.0, item.1);
     }
+    println!();
+}
+
+fn print_help_implants()
+{
+    let help_items = [
+        ("back", "Return to the main menu"),
+        ("help", "Show this help menu"),
+        ("interact", "Interact with a specific implant"),
+        ("kill", "Kill implant"),
+        ("sleep", "Change callback delay"),
+    ];
+
+    println!("\n{0: <20}{1}", "Command", "Description");
+    println!("{0: <20}{1}", "-------", "-----------");
+
+    for item in help_items {
+        println!("{0: <20}{1}", item.0, item.1);
+    }
+    println!();
+}
+
+fn print_help_listeners()
+{
+    let help_items = [
+        ("back", "Return to the main menu"),
+        ("help", "Show this help menu"),
+        ("kill", "Kill a specific listener"),
+        ("update", "Change settings of a listeners"),
+    ];
+
+    println!("\n{0: <20}{1}", "Command", "Description");
+    println!("{0: <20}{1}", "-------", "-----------");
+
+    for item in help_items {
+        println!("{0: <20}{1}", item.0, item.1);
+    }
+    println!();
 }
