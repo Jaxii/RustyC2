@@ -12,7 +12,7 @@ lazy_static!
 
 fn main()
 {
-    // // Create HTTP listener for new agents
+    // // Create HTTP listener for new implants
     // let test_listener = HttpServer::new(|| App::new().service(web::resource("/").to(|| HttpResponse::Ok())));
 
     // // Start HTTP listener
@@ -86,5 +86,17 @@ fn process_input_implants(tag: String)
 
 fn print_help_main()
 {
+    let help_items = [
+        ("exit", "Exit from the framework"),
+        ("help", "Show this help menu"),
+        ("implants", "Manage implants"),
+        ("listeners", "Manage listeners"),
+    ];
 
+    println!("{0: <20}{1}", "Command", "Description");
+    println!("{0: <20}{1}", "-------", "-----------");
+
+    for item in help_items {
+        println!("{0: <20}{1}", item.0, item.1);
+    }
 }
