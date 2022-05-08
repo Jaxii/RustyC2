@@ -1,8 +1,9 @@
-// use actix_web::{web, App, HttpResponse, HttpServer};
 use lazy_static::lazy_static;
 use std::io::{Write};
 
 mod settings;
+mod database;
+mod http_server;
 
 lazy_static!
 {
@@ -10,19 +11,10 @@ lazy_static!
         settings::Settings::new().unwrap();
 }
 
-fn main()
+#[actix_web::main]
+async fn main()
 {
-    // // Create HTTP listener for new implants
-    // let test_listener = HttpServer::new(|| App::new().service(web::resource("/").to(|| HttpResponse::Ok())));
-
-    // // Start HTTP listener
-    // let listener_addr = String::from(&format!(
-    //     "{}:{}",
-    //     CONFIG.listener.address, CONFIG.listener.port
-    // ));
-    // test_listener.bind(listener_addr)?
-    //     .run()
-    //     .await;
+    database::prepare_db().unwrap();
 
     loop
     {
@@ -54,11 +46,11 @@ fn process_input_listeners(tag: String)
         std::io::stdout().flush().unwrap();
 
         std::io::stdin().read_line(&mut input).expect("Failed to read input");
-        // println!("> {}", b1);
 
         match input.as_str().trim()
         {
             "back" => break,
+            "create" => process_input_listeners_create("listeners/create".to_string()),
             "help" => print_help_listeners(),
             _ => ()
         }
@@ -75,7 +67,6 @@ fn process_input_implants(tag: String)
         std::io::stdout().flush().unwrap();
 
         std::io::stdin().read_line(&mut input).expect("Failed to read input");
-        // println!("> {}", b1);
 
         match input.as_str().trim()
         {
@@ -127,9 +118,66 @@ fn print_help_listeners()
 {
     let help_items = [
         ("back", "Return to the main menu"),
+        ("create", "Create a new listener"),
         ("help", "Show this help menu"),
         ("kill", "Kill a specific listener"),
         ("update", "Change settings of a listeners"),
+    ];
+
+    println!("\n{0: <20}{1}", "Command", "Description");
+    println!("{0: <20}{1}", "-------", "-----------");
+
+    for item in help_items {
+        println!("{0: <20}{1}", item.0, item.1);
+    }
+    println!();
+}
+
+fn process_input_listeners_create(tag: String)
+{
+    let address = &CONFIG.listener.address;
+    let port = CONFIG.listener.port;
+
+    loop
+    {
+        let mut input = String::new();
+
+        print!("({})> ", tag);
+        std::io::stdout().flush().unwrap();
+
+        std::io::stdin().read_line(&mut input).expect("Failed to read input");
+
+        let split = input.as_str().trim().split_whitespace().collect::<Vec<&str>>();
+
+        if split.first().is_none()
+        {
+            continue;
+        }
+        let keyword = split.first().unwrap();
+        
+        // println!("[#] Keyword: '{0}'", keyword);
+
+        match *keyword
+        {
+            "back" => break,
+            "create" => {
+                std::thread::spawn(move || {
+                    http_server::create(address.to_string(), port)
+            });},
+            "help" => print_help_listeners_create(),
+            _ => ()
+        }
+    }
+}
+
+fn print_help_listeners_create()
+{
+    let help_items = [
+        ("back", "Return to the previous menu"),
+        ("create", "Create a new listener"),
+        ("help", "Show this help menu"),
+        ("set", "Change listener settings"),
+        ("start", "Create a new listener and start it"),
     ];
 
     println!("\n{0: <20}{1}", "Command", "Description");
