@@ -12,7 +12,8 @@ lazy_static!
         settings::Settings::new().unwrap();
 }
 
-fn handle_connection(mut stream: TcpStream) {
+fn handle_connection(mut stream: TcpStream)
+{
     // Read the first 1024 bytes of data from the stream
     let mut buffer = [0; 1024];
     stream.read(&mut buffer).unwrap();

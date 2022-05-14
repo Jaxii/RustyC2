@@ -29,14 +29,58 @@ async fn main()
         {
             "exit" => break,
             "help" => print_help_main(),
-            "listeners" => process_input_listeners("listeners".to_string()),
-            "implants" => process_input_implants("implants".to_string()),
+            "listeners" => match process_input_listeners("listeners".to_string())
+            {
+                "exit" => break,
+                _ => ()
+            },
+            "implants" => match process_input_implants("implants".to_string())
+            {
+                "exit" => break,
+                _ => ()
+            }
             _ => ()
         }
     }
 }
 
-fn process_input_listeners(tag: String)
+fn process_input_listeners(tag: String) -> &'static str
+{
+    loop
+    {
+        print!("({})> ", tag);
+        std::io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).expect("Failed to read input");
+
+        let input_trimmed = input.as_str().trim();
+
+        if input_trimmed == "back"
+        {
+            return "back";
+        }
+        else if input_trimmed == "exit"
+        {
+            return "exit"
+        }
+        else if input_trimmed == "help"
+        {
+            print_help_listeners();
+        }
+        else if input_trimmed == "create"
+        {
+            let tmp_ret_value = process_input_listeners_create("listeners/create".to_string());
+
+            if tmp_ret_value == "exit"
+            {
+                return "exit";
+            }
+        }
+    }
+}
+
+fn process_input_implants(tag: String) -> &'static str
 {
     loop
     {
@@ -46,34 +90,21 @@ fn process_input_listeners(tag: String)
         std::io::stdout().flush().unwrap();
 
         std::io::stdin().read_line(&mut input).expect("Failed to read input");
+        let input_trimmed = input.as_str().trim();
 
-        match input.as_str().trim()
+        if input_trimmed == "back"
         {
-            "back" => break,
-            "create" => process_input_listeners_create("listeners/create".to_string()),
-            "help" => print_help_listeners(),
-            _ => ()
+            return "back";
         }
-    }
-}
-
-fn process_input_implants(tag: String)
-{
-    loop
-    {
-        let mut input = String::new();
-
-        print!("({})> ", tag);
-        std::io::stdout().flush().unwrap();
-
-        std::io::stdin().read_line(&mut input).expect("Failed to read input");
-
-        match input.as_str().trim()
+        else if input_trimmed == "exit"
         {
-            "back" => break,
-            "help" => print_help_implants(),
-            _ => ()
+            return "exit"
         }
+        else if input_trimmed == "help"
+        {
+            print_help_implants();
+        }
+        
     }
 }
 
@@ -99,6 +130,7 @@ fn print_help_implants()
 {
     let help_items = [
         ("back", "Return to the main menu"),
+        ("exit", "Exit from the framework"),
         ("help", "Show this help menu"),
         ("interact", "Interact with a specific implant"),
         ("kill", "Kill implant"),
@@ -119,6 +151,7 @@ fn print_help_listeners()
     let help_items = [
         ("back", "Return to the main menu"),
         ("create", "Create a new listener"),
+        ("exit", "Exit from the framework"),
         ("help", "Show this help menu"),
         ("kill", "Kill a specific listener"),
         ("update", "Change settings of a listeners"),
@@ -133,7 +166,7 @@ fn print_help_listeners()
     println!();
 }
 
-fn process_input_listeners_create(tag: String)
+fn process_input_listeners_create(tag: String) -> &'static str
 {
     let address = &CONFIG.listener.address;
     let port = CONFIG.listener.port;
@@ -153,19 +186,26 @@ fn process_input_listeners_create(tag: String)
         {
             continue;
         }
+
         let keyword = split.first().unwrap();
-        
         // println!("[#] Keyword: '{0}'", keyword);
 
-        match *keyword
+        if *keyword == "back"
         {
-            "back" => break,
-            "create" => {
-                std::thread::spawn(move || {
-                    http_server::create(address.to_string(), port)
-            });},
-            "help" => print_help_listeners_create(),
-            _ => ()
+            return "back";
+        }
+        else if *keyword == "create" {
+            std::thread::spawn(move || {
+                http_server::create(address.to_string(), port)
+            });
+        }
+        else if *keyword == "exit"
+        {
+            return "exit";
+        }
+        else if *keyword == "help"
+        {
+            print_help_listeners_create();
         }
     }
 }
@@ -175,6 +215,7 @@ fn print_help_listeners_create()
     let help_items = [
         ("back", "Return to the previous menu"),
         ("create", "Create a new listener"),
+        ("exit", "Exit from the framework"),
         ("help", "Show this help menu"),
         ("set", "Change listener settings"),
         ("start", "Create a new listener and start it"),
