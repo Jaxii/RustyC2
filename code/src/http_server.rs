@@ -36,28 +36,42 @@ fn handle_connection(mut stream: TcpStream)
     stream.flush().unwrap();
 }
 
-pub fn create(address: String, port: u16)
+pub fn start_listener(id: u16)
 {
+    let address: String;
+    let port: u16;
+
+    address = crate::database::get_listener_address(id);
+    port = crate::database::get_listener_port(id);
+
     let bind_address = String::from(&format!(
         "{}:{}",
         address, port
     ));
 
-    let listener = TcpListener::bind(bind_address).unwrap();
-
-    for stream in listener.incoming()
+    let bind_result = TcpListener::bind(bind_address);
+    if bind_result.is_err()
     {
-        match stream {
-            Ok(s) =>
-            {
-                // do something with the TcpStream
-                handle_connection(s);
+        println!("\n[!] Couldn't bind the listener to the specified address");
+        println!("[!] Is it already in use?");
+    }
+    else
+    {
+        let listener = bind_result.unwrap();
+        for stream in listener.incoming()
+        {
+            match stream {
+                Ok(s) =>
+                {
+                    // do something with the TcpStream
+                    handle_connection(s);
+                }
+                Err(ref e) if e.kind() == io::ErrorKind::WouldBlock =>
+                {
+                    break;
+                }
+                Err(e) => panic!("encountered IO error: {}", e),
             }
-            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock =>
-            {
-                break;
-            }
-            Err(e) => panic!("encountered IO error: {}", e),
         }
     }
 }

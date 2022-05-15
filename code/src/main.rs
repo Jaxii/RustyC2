@@ -1,7 +1,10 @@
 use lazy_static::lazy_static;
-use std::io::{Write};
+use std::io::Write;
+
+use crate::models::HTTPListener;
 
 mod settings;
+mod models;
 mod database;
 mod http_server;
 
@@ -22,24 +25,31 @@ async fn main()
 
         print!("(~)> ");
         std::io::stdout().flush().unwrap();
-
         std::io::stdin().read_line(&mut input).expect("Failed to read input");
         
-        match input.as_str().trim()
+        let input_trimmed = input.as_str().trim();
+
+        if input_trimmed == "exit"
         {
-            "exit" => break,
-            "help" => print_help_main(),
-            "listeners" => match process_input_listeners("listeners".to_string())
+            break;
+        }
+        else if input_trimmed == "help"
+        {
+            print_help_main();
+        }
+        else if input_trimmed == "listeners"
+        {
+            if process_input_listeners("listeners".to_string()) == "exit"
             {
-                "exit" => break,
-                _ => ()
-            },
-            "implants" => match process_input_implants("implants".to_string())
+                break;
+            };
+        }
+        else if input_trimmed == "implants"
+        {
+            if process_input_implants("implants".to_string()) == "exit"
             {
-                "exit" => break,
-                _ => ()
+                break;
             }
-            _ => ()
         }
     }
 }
@@ -153,7 +163,8 @@ fn print_help_listeners()
         ("create", "Create a new listener"),
         ("exit", "Exit from the framework"),
         ("help", "Show this help menu"),
-        ("kill", "Kill a specific listener"),
+        ("start", "Start/resume a specific listener"),
+        ("stop", "Suspend a specific listener"),
         ("update", "Change settings of a listeners"),
     ];
 
@@ -195,9 +206,10 @@ fn process_input_listeners_create(tag: String) -> &'static str
             return "back";
         }
         else if *keyword == "create" {
-            std::thread::spawn(move || {
-                http_server::create(address.to_string(), port)
-            });
+            // std::thread::spawn(move || {
+            //     database::create_listener(address.to_string(), port)
+            // });
+            HTTPListener::create(address.to_string(), port);
         }
         else if *keyword == "exit"
         {
@@ -218,7 +230,6 @@ fn print_help_listeners_create()
         ("exit", "Exit from the framework"),
         ("help", "Show this help menu"),
         ("set", "Change listener settings"),
-        ("start", "Create a new listener and start it"),
     ];
 
     println!("\n{0: <20}{1}", "Command", "Description");
