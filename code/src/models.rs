@@ -1,4 +1,4 @@
-use std::net::IpAddr;
+use std::net::{IpAddr, AddrParseError};
 use std::fmt;
 
 use crate::database;
@@ -53,7 +53,7 @@ impl fmt::Display for ListenerState {
 
 impl TCPListener
 {
-    const protocol: ListenerProtocol = ListenerProtocol::TCP;
+    const PROTOCOL: ListenerProtocol = ListenerProtocol::TCP;
 
     fn create(address: IpAddr, port: u16) -> TCPListener
     {
@@ -68,18 +68,18 @@ impl TCPListener
 
 impl UDPListener
 {
-    const protocol: ListenerProtocol = ListenerProtocol::UDP;
+    const PROTOCOL: ListenerProtocol = ListenerProtocol::UDP;
 }
 
 impl HTTPListener
 {
-    const protocol: ListenerProtocol = ListenerProtocol::HTTP;
+    const PROTOCOL: ListenerProtocol = ListenerProtocol::HTTP;
 
     pub fn create(address: String, port: u16) -> bool
     {
-        let mut flag = false;
+        let mut flag: bool = false;
 
-        let ip_address = address.parse::<IpAddr>();
+        let ip_address: Result<IpAddr, AddrParseError> = address.parse::<IpAddr>();
         if ! ip_address.is_err()
         {
             let http_listener: HTTPListener = HTTPListener

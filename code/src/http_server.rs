@@ -15,10 +15,10 @@ lazy_static!
 fn handle_connection(mut stream: TcpStream)
 {
     // Read the first 1024 bytes of data from the stream
-    let mut buffer = [0; 1024];
+    let mut buffer: [u8; 1024] = [0; 1024];
     stream.read(&mut buffer).unwrap();
 
-    let get = b"GET / HTTP/1.1\r\n";
+    let get: &[u8; 16] = b"GET / HTTP/1.1\r\n";
 
     // Respond with greetings or a 404,
     // depending on the data in the request
@@ -27,11 +27,11 @@ fn handle_connection(mut stream: TcpStream)
     } else {
         ("HTTP/1.1 404 NOT FOUND\r\n\r\n", "Not found")
     };
-    let contents = filename;
+    let contents: &str = filename;
 
     // Write response back to the stream,
     // and flush the stream to ensure the response is sent back to the client
-    let response = format!("{status_line}{contents}");
+    let response: String = format!("{status_line}{contents}");
     stream.write_all(response.as_bytes()).unwrap();
     stream.flush().unwrap();
 }
@@ -44,12 +44,12 @@ pub fn start_listener(id: u16)
     address = crate::database::get_listener_address(id);
     port = crate::database::get_listener_port(id);
 
-    let bind_address = String::from(&format!(
+    let bind_address: String = String::from(&format!(
         "{}:{}",
         address, port
     ));
 
-    let bind_result = TcpListener::bind(bind_address);
+    let bind_result: Result<TcpListener, io::Error> = TcpListener::bind(bind_address);
     if bind_result.is_err()
     {
         println!("\n[!] Couldn't bind the listener to the specified address");
@@ -57,7 +57,7 @@ pub fn start_listener(id: u16)
     }
     else
     {
-        let listener = bind_result.unwrap();
+        let listener: TcpListener = bind_result.unwrap();
         for stream in listener.incoming()
         {
             match stream {

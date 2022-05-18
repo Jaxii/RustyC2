@@ -28,7 +28,7 @@ impl Settings
 {
     pub fn new() -> Result<Self, ConfigError>
     {
-        let s = Config::builder()
+        let s: Config = Config::builder()
             .add_source(File::new("config/default", FileFormat::Json))
             .build()?;
 

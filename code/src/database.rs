@@ -6,7 +6,7 @@ pub const DB_NAME: &'static str = "db.sqlite3";
 
 pub fn prepare_db() -> Result<()>
 {
-    let conn = Connection::open(DB_NAME).unwrap();
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS listeners (
@@ -34,7 +34,7 @@ pub fn prepare_db() -> Result<()>
 
 pub fn get_next_id() -> u16
 {
-    let conn = Connection::open(DB_NAME).unwrap();
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
 
     let query_result: Result<u16, _> = conn.query_row(
         "SELECT COUNT(*) AS ListenersCounter FROM listeners",
@@ -47,7 +47,7 @@ pub fn get_next_id() -> u16
 
 pub fn get_listener_address(id: u16) -> String
 {
-    let conn = Connection::open(DB_NAME).unwrap();
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
 
     let query_result: Result<String, _> = conn.query_row(
         "SELECT address FROM listeners WHERE Id = ?1",
@@ -60,7 +60,7 @@ pub fn get_listener_address(id: u16) -> String
 
 pub fn get_listener_port(id: u16) -> u16
 {
-    let conn = Connection::open(DB_NAME).unwrap();
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
 
     let query_result: Result<u16, _> = conn.query_row(
         "SELECT port FROM listeners WHERE Id = ?1",
@@ -73,8 +73,8 @@ pub fn get_listener_port(id: u16) -> u16
 
 pub fn insert_http_listener(listener: HTTPListener) -> bool
 {
-    let mut flag = false;
-    let conn = Connection::open(DB_NAME).unwrap();
+    let mut flag: bool = false;
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
 
     let res = conn.execute(
         "INSERT INTO listeners(protocol,address,port,state)
