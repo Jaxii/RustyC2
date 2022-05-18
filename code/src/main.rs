@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use std::io::Write;
 
-use crate::models::HTTPListener;
+use crate::models::{HTTPListener, Listener};
 
 mod settings;
 mod models;
@@ -78,6 +78,10 @@ fn process_input_listeners(tag: String) -> &'static str
             {
                 return "exit";
             }
+        }
+        else if input_trimmed == "list"
+        {
+            list_listeners();
         }
         else if input_trimmed == "exit"
         {
@@ -239,4 +243,14 @@ fn print_help_listeners_create()
         println!("{0: <20}{1}", item.0, item.1);
     }
     println!();
+}
+
+fn list_listeners()
+{
+    let listeners: Vec<Listener> = crate::database::get_listeners();  
+
+    for listener in listeners
+    {
+        println!("{} | {} | {} | {}", listener.state, listener.address, listener.port, listener.protocol);
+    }
 }

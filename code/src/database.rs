@@ -1,6 +1,8 @@
-use rusqlite::{params, Connection, Result};
+use std::{net::IpAddr, str::FromStr};
 
-use crate::models::HTTPListener;
+use rusqlite::{params, Connection, Result, Statement};
+
+use crate::models::{HTTPListener, Listener, ListenerState, ListenerProtocol};
 
 pub const DB_NAME: &'static str = "db.sqlite3";
 
@@ -92,4 +94,39 @@ pub fn insert_http_listener(listener: HTTPListener) -> bool
     }
 
     return flag;
+}
+
+pub fn get_listeners() -> Vec<Listener>
+{
+    let mut listeners: Vec<Listener> = Vec::new();
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
+
+    let mut statement: Statement = conn.prepare("SELECT protocol, address, port, state FROM listeners").unwrap();
+    let mut rows = statement.query([]).unwrap();
+
+    while let Some(row) = rows.next().unwrap()
+    {
+        let protocol: String = row.get(0).unwrap();
+        let port: u16 = row.get(2).unwrap();
+        let address_string: String = row.get(1).unwrap();
+        let address: IpAddr = address_string.parse::<IpAddr>().unwrap();
+        let state: String = row.get(3).unwrap();
+
+        // println!("{:?}", port);
+        // println!("{:?}", address);
+        // println!("{:?}", protocol);
+        // println!("{:?}", state);
+
+        let listener = Listener
+        {
+            protocol: ListenerProtocol::from_str(protocol.as_str()).unwrap(),
+            port: port,
+            address: address,
+            state: ListenerState::from_str(state.as_str()).unwrap()
+        };
+
+        listeners.push(listener);
+    }
+
+    return listeners;
 }

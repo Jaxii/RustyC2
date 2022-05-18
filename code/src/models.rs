@@ -1,20 +1,29 @@
 use std::net::{IpAddr, AddrParseError};
 use std::fmt;
+use std::str::FromStr;
 
 use crate::database;
 
-struct TCPListener
+pub struct Listener
 {
-    state: ListenerState,
-    address: IpAddr,
-    port: u16
+    pub state: ListenerState,
+    pub address: IpAddr,
+    pub port: u16,
+    pub protocol: ListenerProtocol,
 }
 
-struct UDPListener
+pub struct TCPListener
 {
-    state: ListenerState,
-    address: IpAddr,
-    port: u16
+    pub state: ListenerState,
+    pub address: IpAddr,
+    pub port: u16
+}
+
+pub struct UDPListener
+{
+    pub state: ListenerState,
+    pub address: IpAddr,
+    pub port: u16
 }
 
 pub struct HTTPListener
@@ -25,7 +34,7 @@ pub struct HTTPListener
     pub host: String
 }
 
-enum ListenerProtocol
+pub enum ListenerProtocol
 {
     TCP,
     UDP,
@@ -48,6 +57,48 @@ impl fmt::Display for ListenerState {
            ListenerState::Running => write!(f, "Running"),
            ListenerState::Suspended => write!(f, "Suspended"),
        }
+    }
+}
+
+impl fmt::Display for ListenerProtocol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+       match *self {
+            ListenerProtocol::TCP => write!(f, "TCP"),
+            ListenerProtocol::UDP => write!(f, "UDP"),
+            ListenerProtocol::HTTP => write!(f, "HTTP"),
+            ListenerProtocol::ICMP => write!(f, "ICMP"),
+            ListenerProtocol::DNS => write!(f, "DNS"),
+       }
+    }
+}
+
+impl FromStr for ListenerState
+{
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<ListenerState, Self::Err> {
+        match input {
+            "Created"  => Ok(ListenerState::Created),
+            "Running"  => Ok(ListenerState::Running),
+            "Suspended"  => Ok(ListenerState::Suspended),
+            _      => Err(()),
+        }
+    }
+}
+
+impl FromStr for ListenerProtocol
+{
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<ListenerProtocol, Self::Err> {
+        match input {
+            "TCP"  => Ok(ListenerProtocol::TCP),
+            "UCP"  => Ok(ListenerProtocol::UDP),
+            "HTTP"  => Ok(ListenerProtocol::HTTP),
+            "ICMP"  => Ok(ListenerProtocol::ICMP),
+            "DNS"  => Ok(ListenerProtocol::DNS),
+            _      => Err(()),
+        }
     }
 }
 
