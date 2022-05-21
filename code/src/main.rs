@@ -213,7 +213,17 @@ fn process_input_listeners_create(tag: String) -> &'static str
         }
         else if *keyword == "create"
         {
-            HTTPListener::create(address.to_string(), port);
+            let flag: bool = HTTPListener::create(address.to_string(), port);
+            
+            if flag
+            {
+                println!("[+] Listener created successfully");
+                return "back";
+            }
+            else
+            {
+                println!("[!] An error occured while creating the listener");
+            }
         }
         else if *keyword == "exit"
         {
