@@ -1,6 +1,6 @@
 # To-do
 
-1. [ ] Implement `list` command for listeners
+1. [x] Implement `list` command for listeners
 1. [ ] Implement `remove` command for listeners
 1. [ ] Add options for HTTP listener
 1. [ ] Have a working HTTP listener

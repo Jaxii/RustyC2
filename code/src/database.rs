@@ -34,19 +34,6 @@ pub fn prepare_db() -> Result<()>
     Ok(())
 }
 
-pub fn get_next_id() -> u16
-{
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
-
-    let query_result: Result<u16, _> = conn.query_row(
-        "SELECT COUNT(*) AS ListenersCounter FROM listeners",
-        [],
-        |row| row.get(0),
-    );
-
-    return query_result.expect("[!] Couldn't retrieve the ID for the listener");
-}
-
 pub fn get_listener_address(id: u16) -> String
 {
     let conn: Connection = Connection::open(DB_NAME).unwrap();
@@ -101,16 +88,17 @@ pub fn get_listeners() -> Vec<Listener>
     let mut listeners: Vec<Listener> = Vec::new();
     let conn: Connection = Connection::open(DB_NAME).unwrap();
 
-    let mut statement: Statement = conn.prepare("SELECT protocol, address, port, state FROM listeners").unwrap();
+    let mut statement: Statement = conn.prepare("SELECT id, protocol, address, port, state FROM listeners").unwrap();
     let mut rows = statement.query([]).unwrap();
 
     while let Some(row) = rows.next().unwrap()
     {
-        let protocol: String = row.get(0).unwrap();
-        let port: u16 = row.get(2).unwrap();
-        let address_string: String = row.get(1).unwrap();
+        let id: u16 = row.get(0).unwrap();
+        let protocol: String = row.get(1).unwrap();
+        let address_string: String = row.get(2).unwrap();
         let address: IpAddr = address_string.parse::<IpAddr>().unwrap();
-        let state: String = row.get(3).unwrap();
+        let port: u16 = row.get(3).unwrap();
+        let state: String = row.get(4).unwrap();
 
         // println!("{:?}", port);
         // println!("{:?}", address);
@@ -119,6 +107,7 @@ pub fn get_listeners() -> Vec<Listener>
 
         let listener = Listener
         {
+            id: id,
             protocol: ListenerProtocol::from_str(protocol.as_str()).unwrap(),
             port: port,
             address: address,

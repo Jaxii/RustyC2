@@ -249,8 +249,19 @@ fn list_listeners()
 {
     let listeners: Vec<Listener> = crate::database::get_listeners();  
 
+    println!("+----+------------+-----------------+-------+-------+");
+
     for listener in listeners
     {
-        println!("{} | {} | {} | {}", listener.state, listener.address, listener.port, listener.protocol);
+        println!(
+            "| {0:^2} | {1:^10} | {2:^15} | {3:^5} | {4:^5} |",
+            listener.id,
+            listener.state,
+            listener.address,
+            listener.port,
+            listener.protocol
+        );
     }
+
+    println!("+----+------------+-----------------+-------+-------+");
 }
