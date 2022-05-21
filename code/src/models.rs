@@ -6,6 +6,7 @@ use crate::database;
 
 pub struct Listener
 {
+    pub id: u16,
     pub state: ListenerState,
     pub address: IpAddr,
     pub port: u16,
@@ -28,6 +29,7 @@ pub struct UDPListener
 
 pub struct HTTPListener
 {
+    pub id: u16,
     pub state: ListenerState,
     pub address: IpAddr,
     pub port: u16,
@@ -53,9 +55,9 @@ pub enum ListenerState
 impl fmt::Display for ListenerState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
        match *self {
-           ListenerState::Created => write!(f, "Created"),
-           ListenerState::Running => write!(f, "Running"),
-           ListenerState::Suspended => write!(f, "Suspended"),
+           ListenerState::Created => "Created".fmt(f),
+           ListenerState::Running => "Running".fmt(f),
+           ListenerState::Suspended => "Suspended".fmt(f),
        }
     }
 }
@@ -63,11 +65,11 @@ impl fmt::Display for ListenerState {
 impl fmt::Display for ListenerProtocol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
        match *self {
-            ListenerProtocol::TCP => write!(f, "TCP"),
-            ListenerProtocol::UDP => write!(f, "UDP"),
-            ListenerProtocol::HTTP => write!(f, "HTTP"),
-            ListenerProtocol::ICMP => write!(f, "ICMP"),
-            ListenerProtocol::DNS => write!(f, "DNS"),
+            ListenerProtocol::TCP => "TCP".fmt(f),
+            ListenerProtocol::UDP => "UDP".fmt(f),
+            ListenerProtocol::HTTP => "HTTP".fmt(f),
+            ListenerProtocol::ICMP => "ICMP".fmt(f),
+            ListenerProtocol::DNS => "DNS".fmt(f),
        }
     }
 }
@@ -135,9 +137,10 @@ impl HTTPListener
         {
             let http_listener: HTTPListener = HTTPListener
             {
+                id: 0,
                 state: ListenerState::Created,
                 address: ip_address.unwrap(),
-                host: String::from("localhost"),
+                host: String::from(address),
                 port: port
             };
 
