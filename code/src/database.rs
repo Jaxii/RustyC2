@@ -88,7 +88,8 @@ pub fn get_listeners() -> Vec<Listener>
     let mut listeners: Vec<Listener> = Vec::new();
     let conn: Connection = Connection::open(DB_NAME).unwrap();
 
-    let mut statement: Statement = conn.prepare("SELECT id, protocol, address, port, state FROM listeners").unwrap();
+    let mut statement: Statement = conn.prepare(
+        "SELECT id, protocol, address, port, state FROM listeners").unwrap();
     let mut rows = statement.query([]).unwrap();
 
     while let Some(row) = rows.next().unwrap()
@@ -118,4 +119,28 @@ pub fn get_listeners() -> Vec<Listener>
     }
 
     return listeners;
+}
+
+pub fn remove_listener(listener_id: u16) -> bool
+{
+    let mut flag: bool = false;
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
+
+    let res: Result<usize, rusqlite::Error> = conn.execute(
+        "DELETE FROM listeners
+            WHERE id=?1",
+        params![
+            listener_id
+        ]
+    );
+
+    if !res.is_err()
+    {
+        if res.unwrap() != 0
+        {
+            flag = true;
+        }   
+    }
+
+    return flag;
 }

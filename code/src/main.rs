@@ -64,13 +64,20 @@ fn process_input_listeners(tag: String) -> &'static str
         let mut input: String = String::new();
         std::io::stdin().read_line(&mut input).expect("Failed to read input");
 
-        let input_trimmed: &str = input.as_str().trim();
+        let split: Vec<&str> = input.as_str().trim().split_whitespace().collect::<Vec<&str>>();
 
-        if input_trimmed == "back"
+        if split.first().is_none()
+        {
+            continue;
+        }
+
+        let keyword: &&str = split.first().unwrap();
+
+        if *keyword == "back"
         {
             return "back";
         }
-        else if input_trimmed == "create"
+        else if *keyword == "create"
         {
             let tmp_ret_value: &str = process_input_listeners_create("listeners/create".to_string());
 
@@ -79,18 +86,48 @@ fn process_input_listeners(tag: String) -> &'static str
                 return "exit";
             }
         }
-        else if input_trimmed == "list"
-        {
-            list_listeners();
-        }
-        else if input_trimmed == "exit"
+        else if *keyword == "exit"
         {
             return "exit"
         }
-        else if input_trimmed == "help"
+        else if *keyword == "help"
         {
             print_help_listeners();
         }
+        else if *keyword == "list"
+        {
+            list_listeners();
+        }
+        else if *keyword == "remove"
+        {
+            if split.get(1).is_none()
+            {
+                println!("[+] Usage:\n\tremove <id>");
+                println!("\tremove <id1>,<id2>");
+                continue;
+            }
+
+            let first_argument: &str = *(split.get(1).unwrap());
+            let first_argument_int: Result<u16, std::num::ParseIntError> = (*first_argument).parse::<u16>();
+
+            if first_argument_int.is_err()
+            {
+                println!("[!] Couldn't convert the parameter to an integer");
+                continue;
+            }
+            
+            let listener_id: u16 = first_argument_int.unwrap();
+            if database::remove_listener(listener_id)
+            {
+                println!("[+] Successfully remove the listener {0}", listener_id);
+            }
+            else
+            {
+                println!("[!] Failed to remove the listener {0}", listener_id);
+                println!("[?] Does it exist and is it stopped?");
+            }
+        }
+        
     }
 }
 
@@ -169,6 +206,7 @@ fn print_help_listeners()
         ("exit",    "Exit from the framework"),
         ("help",    "Show this help menu"),
         ("list",    "List all the listeners"),
+        ("remove",  "Remove a listener"),
         ("start",   "Start/resume a specific listener"),
         ("stop",    "Suspend a specific listener"),
         ("update",  "Change settings of a listeners"),
@@ -259,12 +297,20 @@ fn list_listeners()
 {
     let listeners: Vec<Listener> = crate::database::get_listeners();  
 
-    println!("+----+------------+-----------------+-------+-------+");
+    if listeners.is_empty()
+    {
+        println!("[+] No listeners found");
+        return;
+    }
+
+    println!("+----+------------+-----------------+-------+------------+");
+    println!("| ID |   STATE    |     ADDRESS     |  PORT |  PROTOCOL  |");
+    println!("+----+------------+-----------------+-------+------------+");
 
     for listener in listeners
     {
         println!(
-            "| {0:^2} | {1:^10} | {2:^15} | {3:^5} | {4:^5} |",
+            "| {0:^2} | {1:^10} | {2:^15} | {3:^5} | {4:^10} |",
             listener.id,
             listener.state,
             listener.address,
@@ -272,6 +318,5 @@ fn list_listeners()
             listener.protocol
         );
     }
-
-    println!("+----+------------+-----------------+-------+-------+");
+    println!("+----+------------+-----------------+-------+------------+");
 }
