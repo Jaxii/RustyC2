@@ -1,7 +1,7 @@
-use lazy_static::lazy_static;
-use std::io::Write;
+use lazy_static::{lazy_static};
+use std::{io::Write};
 
-use crate::models::{HTTPListener, Listener};
+use crate::models::{HTTPListener, GenericListener, ListenerProtocol};
 
 mod settings;
 mod models;
@@ -168,12 +168,14 @@ fn print_help_main()
         ("listeners",   "Manage listeners"),
     ];
 
-    println!("\n{0: <20}{1}", "Command", "Description");
+    println!();
+    println!("{0: <20}{1}", "Command", "Description");
     println!("{0: <20}{1}", "-------", "-----------");
 
     for item in help_items {
         println!("{0: <20}{1}", item.0, item.1);
     }
+
     println!();
 }
 
@@ -295,7 +297,7 @@ fn print_help_listeners_create()
 
 fn list_listeners()
 {
-    let listeners: Vec<Listener> = crate::database::get_listeners();  
+    let listeners: Vec<GenericListener> = crate::database::get_listeners();  
 
     if listeners.is_empty()
     {
@@ -303,18 +305,26 @@ fn list_listeners()
         return;
     }
 
-    println!("+----+------------+------------+");
-    println!("| ID |   STATE    |  PROTOCOL  |");
-    println!("+----+------------+------------+");
+    println!("+----+------------+-----------------+-------+");
+    println!("| ID |   STATE    |     ADDRESS     |  PORT |");
+    println!("+----+------------+-----------------+-------+");
 
     for listener in listeners
     {
-        println!(
-            "| {0:^2} | {1:^10} | {2:^10} |",
-            listener.id,
-            listener.state,
-            listener.protocol
-        );
+
+        if let ListenerProtocol::HTTP = listener.protocol
+        {
+            let http_listener: &HTTPListener = listener.data.downcast_ref::<HTTPListener>().unwrap();
+
+            println!(
+                "| {0:^2} | {1:^10} | {2:^15} | {3:^5} |",
+                http_listener.id,
+                http_listener.state,
+                http_listener.address,
+                http_listener.port
+            );
+        }
     }
-    println!("+----+------------+------------+");
+
+    println!("+----+------------+-----------------+-------+");
 }

@@ -1,14 +1,14 @@
+use std::any::Any;
 use std::net::{IpAddr, AddrParseError};
 use std::fmt;
 use std::str::FromStr;
 
 use crate::database;
 
-pub struct Listener
+pub struct GenericListener
 {
-    pub id: u16,
-    pub state: ListenerState,
     pub protocol: ListenerProtocol,
+    pub data: Box<dyn Any>
 }
 
 pub struct TCPListener
@@ -138,7 +138,7 @@ impl HTTPListener
                 id: 0,
                 state: ListenerState::Created,
                 address: ip_address.unwrap(),
-                host: String::from(address),
+                host: String::from("localhost"),
                 port: port
             };
 
