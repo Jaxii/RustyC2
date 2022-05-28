@@ -8,8 +8,6 @@ pub struct Listener
 {
     pub id: u16,
     pub state: ListenerState,
-    pub address: IpAddr,
-    pub port: u16,
     pub protocol: ListenerProtocol,
 }
 

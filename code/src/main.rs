@@ -303,20 +303,18 @@ fn list_listeners()
         return;
     }
 
-    println!("+----+------------+-----------------+-------+------------+");
-    println!("| ID |   STATE    |     ADDRESS     |  PORT |  PROTOCOL  |");
-    println!("+----+------------+-----------------+-------+------------+");
+    println!("+----+------------+------------+");
+    println!("| ID |   STATE    |  PROTOCOL  |");
+    println!("+----+------------+------------+");
 
     for listener in listeners
     {
         println!(
-            "| {0:^2} | {1:^10} | {2:^15} | {3:^5} | {4:^10} |",
+            "| {0:^2} | {1:^10} | {2:^10} |",
             listener.id,
             listener.state,
-            listener.address,
-            listener.port,
             listener.protocol
         );
     }
-    println!("+----+------------+-----------------+-------+------------+");
+    println!("+----+------------+------------+");
 }
