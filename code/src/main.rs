@@ -1,12 +1,12 @@
 use lazy_static::{lazy_static};
 use std::{io::Write};
 
-use crate::models::{HTTPListener, GenericListener, ListenerProtocol};
-
 mod settings;
 mod models;
 mod database;
 mod http_server;
+
+use models::{HTTPListener, GenericListener, ListenerProtocol, ShowSettings};
 
 lazy_static!
 {
@@ -228,6 +228,19 @@ fn process_input_listeners_create(tag: String) -> &'static str
     let address: &String = &CONFIG.listener.address;
     let port: u16 = CONFIG.listener.port;
 
+    let http_listener: HTTPListener;
+    
+    match HTTPListener::create(address.clone(), port)
+    {
+        Ok(v) => {
+            http_listener = v;
+        },
+        Err(e) => {
+            println!("[!] Invalid address/port for the listener. Check the default profile");
+            return "exit";
+        }
+    }
+
     loop
     {
         let mut input: String = String::new();
@@ -247,31 +260,37 @@ fn process_input_listeners_create(tag: String) -> &'static str
         let keyword: &&str = split.first().unwrap();
         // println!("[#] Keyword: '{0}'", keyword);
 
-        if *keyword == "back"
-        {
-            return "back";
-        }
-        else if *keyword == "create"
-        {
-            let flag: bool = HTTPListener::create(address.to_string(), port);
-            
-            if flag
-            {
-                println!("[+] Listener created successfully");
+        match *keyword {
+            "back" => {
                 return "back";
             }
-            else
+            "create" =>
             {
-                println!("[!] An error occured while creating the listener");
+                match HTTPListener::create(address.to_string(), port)
+                {
+                    Ok(v) => {
+                        HTTPListener::add_to_database(v);
+                        println!("[+] Listener created successfully");
+                        return "back";
+                    },
+                    Err(e) => {
+                        println!("[!] An error occured while creating the listener");
+                    }
+                }
             }
-        }
-        else if *keyword == "exit"
-        {
-            return "exit";
-        }
-        else if *keyword == "help"
-        {
-            print_help_listeners_create();
+            "exit" =>
+            {
+                return "exit";
+            }
+            "help" =>
+            {
+                print_help_listeners_create();
+            }
+            "options" =>
+            {
+                http_listener.show_settings();
+            }
+            _ => {}
         }
     }
 }
@@ -283,15 +302,18 @@ fn print_help_listeners_create()
         ("create",  "Create a new listener"),
         ("exit",    "Exit from the framework"),
         ("help",    "Show this help menu"),
+        ("options", "Show options"),
         ("set",     "Change listener settings"),
     ];
 
-    println!("\n{0: <20}{1}", "Command", "Description");
+    println!();
+    println!("{0: <20}{1}", "Command", "Description");
     println!("{0: <20}{1}", "-------", "-----------");
 
     for item in help_items {
         println!("{0: <20}{1}", item.0, item.1);
     }
+
     println!();
 }
 

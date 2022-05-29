@@ -4,7 +4,6 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::database;
-
 pub struct GenericListener
 {
     pub protocol: ListenerProtocol,
@@ -48,6 +47,11 @@ pub enum ListenerState
     Created,
     Running,
     Suspended
+}
+
+pub trait ShowSettings
+{
+    fn show_settings(&self);
 }
 
 impl fmt::Display for ListenerState {
@@ -126,25 +130,50 @@ impl HTTPListener
 {
     const PROTOCOL: ListenerProtocol = ListenerProtocol::HTTP;
 
-    pub fn create(address: String, port: u16) -> bool
+    pub fn create(address: String, port: u16) -> Result<HTTPListener, Box<dyn std::error::Error>>
     {
-        let mut flag: bool = false;
-
         let ip_address: Result<IpAddr, AddrParseError> = address.parse::<IpAddr>();
-        if ! ip_address.is_err()
+        Ok(HTTPListener
         {
-            let http_listener: HTTPListener = HTTPListener
-            {
-                id: 0,
-                state: ListenerState::Created,
-                address: ip_address.unwrap(),
-                host: String::from("localhost"),
-                port: port
-            };
+            id: 0,
+            state: ListenerState::Created,
+            address: ip_address?,
+            host: String::from("localhost"),
+            port: port
+        })
+    }
 
-            flag = database::insert_http_listener(http_listener);
+    pub fn add_to_database(http_listener: HTTPListener) -> bool
+    {
+        return database::insert_http_listener(http_listener);
+    }
+}
+
+impl ShowSettings for HTTPListener
+{
+    fn show_settings(&self)
+    {
+        println!("+------------+----------------------+");
+        println!("|  Property  |         Value        |");
+        println!("+------------+----------------------+");
+
+        let dict: [(&str, String); 5] = [
+            ("State", self.state.to_string()),
+            ("Protocol", "HTTP".to_string()),
+            ("Address", self.address.to_string()),
+            ("Port", self.port.to_string()),
+            ("Host", self.host.to_string())
+        ];
+
+        for x in dict
+        {
+            println!(
+                "| {0:^10} | {1:<20} |",
+                x.0,
+                x.1
+            )
         }
 
-        return flag;
+        println!("+------------+----------------------+");
     }
 }
