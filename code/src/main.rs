@@ -6,7 +6,7 @@ mod models;
 mod database;
 mod http_server;
 
-use models::{HTTPListener, GenericListener, ListenerProtocol, ShowSettings};
+use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings};
 
 lazy_static!
 {
@@ -228,14 +228,14 @@ fn process_input_listeners_create(tag: String) -> &'static str
     let address: &String = &CONFIG.listener.address;
     let port: u16 = CONFIG.listener.port;
 
-    let http_listener: HTTPListener;
+    let mut http_listener: HTTPListener;
     
     match HTTPListener::create(address.clone(), port)
     {
         Ok(v) => {
             http_listener = v;
         },
-        Err(e) => {
+        Err(_) => {
             println!("[!] Invalid address/port for the listener. Check the default profile");
             return "exit";
         }
@@ -266,17 +266,9 @@ fn process_input_listeners_create(tag: String) -> &'static str
             }
             "create" =>
             {
-                match HTTPListener::create(address.to_string(), port)
-                {
-                    Ok(v) => {
-                        HTTPListener::add_to_database(v);
-                        println!("[+] Listener created successfully");
-                        return "back";
-                    },
-                    Err(e) => {
-                        println!("[!] An error occured while creating the listener");
-                    }
-                }
+                HTTPListener::add_to_database(http_listener);
+                println!("[+] Listener created successfully");
+                return "back";
             }
             "exit" =>
             {
@@ -289,6 +281,32 @@ fn process_input_listeners_create(tag: String) -> &'static str
             "options" =>
             {
                 http_listener.show_settings();
+            }
+            "set" =>
+            {
+                let param1: Option<&&str> = split.get(1);
+                let param2: Option<&&str> = split.get(2);
+                if param1.is_none() || param2.is_none()
+                {
+                    println!("[+] Usage:\n\tset <option> <value>");
+                    continue;
+                }
+
+                let option: &str = *(param1.unwrap());
+                let value: &str = *(param2.unwrap());
+
+                match http_listener.set_option(option, value)
+                {
+                    true =>
+                    {
+                        println!("[+] Successfully set the listener option\n");
+                        http_listener.show_settings();
+                    }
+                    false =>
+                    {
+                        println!("[!] Failed to set the listener option");
+                    }
+                }
             }
             _ => {}
         }
