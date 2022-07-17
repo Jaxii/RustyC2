@@ -1,16 +1,14 @@
+use std::any::Any;
 use std::net::{IpAddr, AddrParseError};
 use std::fmt;
-use std::str::FromStr;
+use std::num::ParseIntError;
+use std::str::{FromStr, Chars};
 
 use crate::database;
-
-pub struct Listener
+pub struct GenericListener
 {
-    pub id: u16,
-    pub state: ListenerState,
-    pub address: IpAddr,
-    pub port: u16,
     pub protocol: ListenerProtocol,
+    pub data: Box<dyn Any>
 }
 
 pub struct TCPListener
@@ -50,6 +48,12 @@ pub enum ListenerState
     Created,
     Running,
     Suspended
+}
+
+pub trait ManageSettings
+{
+    fn show_settings(&self);
+    fn set_option(&mut self, option: &str, value: &str) -> bool;
 }
 
 impl fmt::Display for ListenerState {
@@ -128,23 +132,104 @@ impl HTTPListener
 {
     const PROTOCOL: ListenerProtocol = ListenerProtocol::HTTP;
 
-    pub fn create(address: String, port: u16) -> bool
+    pub fn create(address: String, port: u16) -> Result<HTTPListener, Box<dyn std::error::Error>>
+    {
+        let ip_address: Result<IpAddr, AddrParseError> = address.parse::<IpAddr>();
+        Ok(HTTPListener
+        {
+            id: 0,
+            state: ListenerState::Created,
+            address: ip_address?,
+            host: String::from("localhost"),
+            port: port
+        })
+    }
+
+    pub fn add_to_database(http_listener: HTTPListener) -> bool
+    {
+        return database::insert_http_listener(http_listener);
+    }
+}
+
+impl ManageSettings for HTTPListener
+{
+    fn show_settings(&self)
+    {
+        println!("+------------+----------------------+");
+        println!("|  Property  |         Value        |");
+        println!("+------------+----------------------+");
+
+        let dict: [(&str, String); 4] = [
+            // ("State", self.state.to_string()),
+            ("Protocol", "HTTP".to_string()),
+            ("Address", self.address.to_string()),
+            ("Port", self.port.to_string()),
+            ("Host", self.host.to_string())
+        ];
+
+        for x in dict
+        {
+            println!(
+                "| {0:^10} | {1:<20} |",
+                x.0,
+                x.1
+            )
+        }
+
+        println!("+------------+----------------------+");
+    }
+
+    fn set_option(&mut self, option: &str, value: &str) -> bool
     {
         let mut flag: bool = false;
 
-        let ip_address: Result<IpAddr, AddrParseError> = address.parse::<IpAddr>();
-        if ! ip_address.is_err()
-        {
-            let http_listener: HTTPListener = HTTPListener
-            {
-                id: 0,
-                state: ListenerState::Created,
-                address: ip_address.unwrap(),
-                host: String::from(address),
-                port: port
-            };
+        let option_lowercase = option.to_lowercase();
+        let mut option_chars: Chars = option_lowercase.chars();
+        let option_capitalized: String = match option_chars.next() {
+            None => String::new(),
+            Some(f) => f.to_uppercase().collect::<String>() + option_chars.as_str(),
+        };
 
-            flag = database::insert_http_listener(http_listener);
+        // println!("[+] Setting option: {}", option_capitalized.as_str());
+        match option_capitalized.as_str()
+        {
+            "Address" =>
+            {
+                // println!("[+] Setting listener address to {}", value);
+
+                let res: Result<IpAddr, AddrParseError> = value.parse::<IpAddr>();
+                if ! res.is_err()
+                {
+                    self.address = res.unwrap();
+                    flag = true;
+                }
+            },
+            "Port" =>
+            {
+                // println!("[+] Setting listener port to {}", value);
+
+                let res: Result<u16, ParseIntError> = value.parse::<u16>();
+                if ! res.is_err() 
+                {
+                    let port: u16 = res.unwrap();
+                    if port > 0
+                    {
+                        self.port = port;
+                        flag = true;
+                    }
+                }
+            },
+            "Host" =>
+            {
+                // println!("[+] Setting listener host to {}", value);
+
+                if value.chars().count() <= 100
+                {
+                    self.host = value.to_string();
+                    flag = true;
+                }
+            },
+            &_ => {}
         }
 
         return flag;
