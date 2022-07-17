@@ -1,4 +1,4 @@
-use lazy_static::lazy_static;
+use lazy_static::{lazy_static, __Deref};
 use std::io::Write;
 
 use crate::models::{HTTPListener, Listener};
@@ -27,24 +27,59 @@ async fn main()
         std::io::stdout().flush().unwrap();
         std::io::stdin().read_line(&mut input).expect("Failed to read input");
         
-        let input_trimmed: &str = input.as_str().trim();
+        let split: Vec<&str> = input.as_str().trim().split_whitespace().collect::<Vec<&str>>();
 
-        if input_trimmed == "exit"
+        if split.first().is_none()
+        {
+            continue;
+        }
+
+        let keyword: &str = split.first().unwrap().deref();
+
+        if keyword == "exit"
         {
             break;
         }
-        else if input_trimmed == "help"
+        else if keyword == "help"
         {
-            print_help_main();
+            if split.get(1).is_some()
+            {
+                let help_argument: &&str = split.get(1).unwrap();
+
+                if *help_argument == "back"
+                {
+                    println!("[+] Usage:\n\tback");
+                    println!("[+] Description:\n\tIt allows you to go back to the previous menu");
+                }
+                else if *help_argument == "exit"
+                {
+                    println!("[+] Usage:\n\texit");
+                    println!("[+] Description:\n\tUse it to exit from the program");
+                }
+                else if *help_argument == "listeners"
+                {
+                    println!("[+] Usage:\n\tlisteners");
+                    println!("[+] Description:\n\tAccess the listeners menu");
+                }
+                else if *help_argument == "implants"
+                {
+                    println!("[+] Usage:\n\timplants");
+                    println!("[+] Description:\n\tAccess the implants menu");
+                }
+            }
+            else
+            {
+                print_help_main();
+            }
         }
-        else if input_trimmed == "listeners"
+        else if keyword == "listeners"
         {
             if process_input_listeners("listeners".to_string()) == "exit"
             {
                 break;
             };
         }
-        else if input_trimmed == "implants"
+        else if keyword == "implants"
         {
             if process_input_implants("implants".to_string()) == "exit"
             {
@@ -92,6 +127,41 @@ fn process_input_listeners(tag: String) -> &'static str
         }
         else if *keyword == "help"
         {
+            if split.get(1).is_some()
+            {
+                let help_argument: &&str = split.get(1).unwrap();
+
+                if *help_argument == "back"
+                {
+                    println!("[+] Usage:\n\tback");
+                    println!("[+] Description:\n\tIt allows you to go back to the previous menu");
+                }
+                else if *help_argument == "exit"
+                {
+                    println!("[+] Usage:\n\texit");
+                    println!("[+] Description:\n\tUse it to exit from the program");
+                }
+                else if *help_argument == "remove"
+                {
+                    println!("[+] Usage:\n\tremove <id>");
+                    println!("\tremove <id1>,<id2>");
+                    println!("\tremove <id1>,<id2>,<id3>,...");
+                    println!("[+] Description:\n\tUse it to remove a stopped listener from the database");
+                }
+                else if *help_argument == "list"
+                {
+                    println!("[+] Usage:\n\tlist");
+                    println!("[+] Description:\n\tShow all the listeners in the database");
+                }
+                else if *help_argument == "create"
+                {
+                    println!("[+] Usage:\n\tcreate");
+                    println!("[+] Description:\n\tCreate a new listener");
+                }
+
+                continue;
+            }
+
             print_help_listeners();
         }
         else if *keyword == "list"

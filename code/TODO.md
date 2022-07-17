@@ -2,6 +2,7 @@
 
 1. [x] Implement `list` command for listeners
 1. [x] Implement `remove` command for listeners
+1. [ ] Add help menu for each command (e.g. "help create" in listeners)
 1. [ ] Implement `set` command for listeners
 1. [ ] Add options for HTTP listener
 1. [ ] Implement `set` command for implants
