@@ -8,6 +8,8 @@ mod http_server;
 
 use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings};
 
+use crate::http_server::start_listener;
+
 lazy_static!
 {
     static ref CONFIG: settings::Settings =
@@ -106,13 +108,13 @@ fn process_input_listeners(tag: String) -> &'static str
             continue;
         }
 
-        let keyword: &&str = split.first().unwrap();
+        let keyword: &str = split.first().unwrap().deref();
 
-        if *keyword == "back"
+        if keyword == "back"
         {
             return "back";
         }
-        else if *keyword == "create"
+        else if keyword == "create"
         {
             let tmp_ret_value: &str = process_input_listeners_create("listeners/create".to_string());
 
@@ -121,11 +123,11 @@ fn process_input_listeners(tag: String) -> &'static str
                 return "exit";
             }
         }
-        else if *keyword == "exit"
+        else if keyword == "exit"
         {
             return "exit"
         }
-        else if *keyword == "help"
+        else if keyword == "help"
         {
             if split.get(1).is_some()
             {
@@ -164,11 +166,11 @@ fn process_input_listeners(tag: String) -> &'static str
 
             print_help_listeners();
         }
-        else if *keyword == "list"
+        else if keyword == "list"
         {
             list_listeners();
         }
-        else if *keyword == "remove"
+        else if keyword == "remove"
         {
             if split.get(1).is_none()
             {
@@ -197,7 +199,26 @@ fn process_input_listeners(tag: String) -> &'static str
                 println!("[?] Does it exist and is it stopped?");
             }
         }
-        
+        else if keyword == "start"
+            {
+                let listener_id_option: Option<&&str> = split.get(1);
+                if listener_id_option.is_none()
+                {
+                    // show command help message
+                    continue;
+                }
+
+                let listener_id_int: Result<u16, _> = listener_id_option.unwrap().parse();
+                if listener_id_int.is_err()
+                {
+                    println!("[!] Couldn't convert the parameter to an integer");
+                    continue;
+                }
+
+                std::thread::spawn(move || {
+                    start_listener(listener_id_int.unwrap())
+                });
+            }
     }
 }
 
@@ -330,8 +351,10 @@ fn process_input_listeners_create(tag: String) -> &'static str
         let keyword: &&str = split.first().unwrap();
         // println!("[#] Keyword: '{0}'", keyword);
 
-        match *keyword {
-            "back" => {
+        match *keyword
+        {
+            "back" =>
+            {
                 return "back";
             }
             "create" =>
@@ -356,6 +379,7 @@ fn process_input_listeners_create(tag: String) -> &'static str
             {
                 let param1: Option<&&str> = split.get(1);
                 let param2: Option<&&str> = split.get(2);
+
                 if param1.is_none() || param2.is_none()
                 {
                     println!("[+] Usage:\n\tset <option> <value>");

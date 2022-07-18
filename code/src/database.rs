@@ -59,9 +59,9 @@ pub fn get_listener_address(id: u16) -> String
     let conn: Connection = Connection::open(DB_NAME).unwrap();
 
     let query_result: Result<String, _> = conn.query_row(
-        "SELECT Address  
-        FROM Listeners
-        WHERE Id = ?1",
+        "SELECT IpAddress  
+        FROM HttpListenerSettings
+        WHERE ListenerId = ?1",
         params![id],
         |row| row.get(0),
     );
@@ -75,8 +75,8 @@ pub fn get_listener_port(id: u16) -> u16
 
     let query_result: Result<u16, _> = conn.query_row(
         "SELECT Port
-        FROM Listeners
-        WHERE Id = ?1",
+        FROM HttpListenerSettings
+        WHERE ListenerId = ?1",
         params![id],
         |row| row.get(0),
     );
