@@ -1,6 +1,6 @@
 use std::{net::IpAddr, str::FromStr};
-
 use rusqlite::{params, Connection, Result, Statement};
+use std::time::{SystemTime, SystemTimeError, Duration};
 
 use crate::models::{HTTPListener, GenericListener, ListenerState, ListenerProtocol};
 
@@ -42,6 +42,7 @@ pub fn prepare_db() -> Result<()>
     conn.execute(
         "CREATE TABLE IF NOT EXISTS Implants (
             Id              INTEGER PRIMARY KEY,
+            CookieHash      VARCHAR(32),
             LastSeen        INTEGER NOT NULL,
             ListenerId      INTEGER,
             FOREIGN KEY(ListenerId)
@@ -191,6 +192,62 @@ pub fn remove_listener(listener_id: u16) -> bool
         {
             flag = true;
         }   
+    }
+
+    return flag;
+}
+
+pub fn check_if_implant_in_db(implant_cookie_hash: &str) -> bool
+{
+    let mut flag: bool = false;
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
+
+    let query_result: Result<String, _> = conn.query_row(
+        "SELECT CookieHash
+        FROM Implants
+        WHERE CookieHash = ?1",
+        params![implant_cookie_hash],
+        |row| row.get(0),
+    );
+
+    if query_result.is_ok()
+    {
+        if query_result.unwrap() == implant_cookie_hash
+        {
+            flag = true;
+        }   
+    }
+
+    return flag;
+}
+
+pub fn insert_implant(listener_id: u16, implant_cookie_hash: &str) -> bool
+{
+    let mut flag: bool = false;
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
+
+    let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().elapsed();
+    if time_elapsed_now.is_err()
+    {
+        return flag;
+    }
+
+    let res: Result<usize, rusqlite::Error> = conn.execute(
+        "INSERT INTO Implants(CookieHash,LastSeen,ListenerId)
+            VALUES(?1,?2,?3)",
+        params![
+            implant_cookie_hash,
+            time_elapsed_now.unwrap().as_secs(),
+            listener_id
+        ]
+    );
+
+    if res.is_ok()
+    {
+        if res.unwrap() == 1
+        {
+            flag = true;
+        }
     }
 
     return flag;
