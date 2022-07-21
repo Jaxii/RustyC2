@@ -7,6 +7,7 @@
 1. [ ] Add help menu for each command (e.g. "help create" in listeners)
 1. [x] Implement `list` command for implants
 1. [ ] Implement an API server
+1. [x] Add `remove` command for implants
 1. [ ] Improve `remove` command for implants
 1. [ ] Improve `remove` command for listeners
   - [ ] Allow to remove multiple listeners at a time

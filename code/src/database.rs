@@ -286,3 +286,27 @@ pub fn get_implants() -> Vec<GenericImplant>
 
     return implants;
 }
+
+pub fn remove_implant(implant_id: u16) -> bool
+{
+    let mut flag: bool = false;
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
+
+    let res: Result<usize, rusqlite::Error> = conn.execute(
+        "DELETE FROM Implants
+        WHERE Id=?1",
+        params![
+            implant_id
+        ]
+    );
+
+    if !res.is_err()
+    {
+        if res.unwrap() != 0
+        {
+            flag = true;
+        }   
+    }
+
+    return flag;
+}

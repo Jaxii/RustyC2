@@ -232,25 +232,60 @@ fn process_input_implants(tag: String) -> &'static str
         std::io::stdout().flush().unwrap();
 
         std::io::stdin().read_line(&mut input).expect("Failed to read input");
-        let input_trimmed: &str = input.as_str().trim();
 
-        if input_trimmed == "back"
+        let split: Vec<&str> = input.as_str().trim().split_whitespace().collect::<Vec<&str>>();
+
+        if split.first().is_none()
+        {
+            continue;
+        }
+
+        let keyword: &str = &split.first().unwrap();
+
+        if keyword == "back"
         {
             return "back";
         }
-        else if input_trimmed == "exit"
+        else if keyword == "exit"
         {
             return "exit"
         }
-        else if input_trimmed == "help"
+        else if keyword == "help"
         {
             print_help_implants();
         }
-        else if input_trimmed == "list"
+        else if keyword == "list"
         {
             list_implants();
         }
-        
+        else if keyword == "remove"
+        {
+            if split.get(1).is_none()
+            {
+                println!("[+] Usage:\n\tremove <id>");
+                println!("\tremove <id1>,<id2>");
+                continue;
+            }
+
+            let first_argument: &str = *(split.get(1).unwrap());
+            let first_argument_int: Result<u16, std::num::ParseIntError> = (*first_argument).parse::<u16>();
+
+            if first_argument_int.is_err()
+            {
+                println!("[!] Couldn't convert the parameter to an integer");
+                continue;
+            }
+            
+            let implant_id: u16 = first_argument_int.unwrap();
+            if database::remove_implant(implant_id)
+            {
+                println!("[+] Successfully remove the implant {0}", implant_id);
+            }
+            else
+            {
+                println!("[!] Failed to remove the implant {0}", implant_id);
+            }
+        }
     }
 }
 
