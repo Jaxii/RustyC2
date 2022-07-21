@@ -34,6 +34,14 @@ pub struct HTTPListener
     pub host: String
 }
 
+pub struct GenericImplant
+{
+    pub id: u16,
+    pub listener_id: u16,
+    pub last_seen: u64,
+    pub data: Box<dyn Any>
+}
+
 pub enum ListenerProtocol
 {
     TCP,
@@ -48,6 +56,13 @@ pub enum ListenerState
     Created,
     Running,
     Suspended
+}
+
+pub enum ImplantPlatform
+{
+    Windows,
+    Linux,
+    MacOS
 }
 
 pub trait ManageSettings
@@ -74,6 +89,16 @@ impl fmt::Display for ListenerProtocol {
             ListenerProtocol::HTTP => "HTTP".fmt(f),
             ListenerProtocol::ICMP => "ICMP".fmt(f),
             ListenerProtocol::DNS => "DNS".fmt(f),
+       }
+    }
+}
+
+impl fmt::Display for ImplantPlatform {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+       match *self {
+            ImplantPlatform::Windows => "Windows".fmt(f),
+            ImplantPlatform::Linux => "Linux".fmt(f),
+            ImplantPlatform::MacOS => "macOS".fmt(f)
        }
     }
 }

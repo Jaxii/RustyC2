@@ -8,7 +8,7 @@ mod http_server;
 
 use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings};
 
-use crate::http_server::start_listener;
+use crate::{http_server::start_listener, models::GenericImplant};
 
 lazy_static!
 {
@@ -246,6 +246,10 @@ fn process_input_implants(tag: String) -> &'static str
         {
             print_help_implants();
         }
+        else if input_trimmed == "list"
+        {
+            list_implants();
+        }
         
     }
 }
@@ -461,4 +465,32 @@ fn list_listeners()
     }
 
     println!("+----+------------+-----------------+-------+");
+}
+
+fn list_implants()
+{
+    let implants: Vec<GenericImplant> = database::get_implants();  
+
+    if implants.is_empty()
+    {
+        println!("[+] No implants found");
+        return;
+    }
+
+    println!("+----+------------+-----------------+");
+    println!("| ID |  Listener  |    Last Seen    |");
+    println!("+----+------------+-----------------+");
+
+    for implant in implants
+    {
+
+        println!(
+            "| {0:^2} | {1:^10} | {2:^15} |",
+            implant.id,
+            implant.listener_id,
+            implant.last_seen,
+        );
+    }
+
+    println!("+----+------------+-----------------+");
 }

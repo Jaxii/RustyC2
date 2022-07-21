@@ -2,7 +2,7 @@ use std::{net::IpAddr, str::FromStr};
 use rusqlite::{params, Connection, Result, Statement};
 use std::time::{SystemTime, SystemTimeError, Duration};
 
-use crate::models::{HTTPListener, GenericListener, ListenerState, ListenerProtocol};
+use crate::models::{HTTPListener, GenericListener, ListenerState, ListenerProtocol, GenericImplant};
 
 pub const DB_NAME: &'static str = "db.sqlite3";
 
@@ -123,6 +123,88 @@ pub fn insert_http_listener(listener: HTTPListener) -> bool
     return flag;
 }
 
+pub fn remove_listener(listener_id: u16) -> bool
+{
+    let mut flag: bool = false;
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
+
+    let res: Result<usize, rusqlite::Error> = conn.execute(
+        "DELETE FROM Listeners
+        WHERE Id=?1",
+        params![
+            listener_id
+        ]
+    );
+
+    if !res.is_err()
+    {
+        if res.unwrap() != 0
+        {
+            flag = true;
+        }   
+    }
+
+    return flag;
+}
+
+pub fn check_if_implant_in_db(implant_cookie_hash: &str) -> bool
+{
+    let mut flag: bool = false;
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
+
+    let query_result: Result<String, _> = conn.query_row(
+        "SELECT CookieHash
+        FROM Implants
+        WHERE CookieHash = ?1",
+        params![implant_cookie_hash],
+        |row| row.get(0),
+    );
+
+    if query_result.is_ok()
+    {
+        if query_result.unwrap() == implant_cookie_hash
+        {
+            flag = true;
+        }   
+    }
+
+    return flag;
+}
+
+pub fn add_implant(listener_id: u16, implant_cookie_hash: &str) -> bool
+{
+    let mut flag: bool = false;
+    let conn: Connection = Connection::open(DB_NAME).unwrap();
+
+    let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
+    if time_elapsed_now.is_err()
+    {
+        return flag;
+    }
+
+    println!("[+] Last seen: {}", time_elapsed_now.as_ref().unwrap().as_secs());
+
+    let res: Result<usize, rusqlite::Error> = conn.execute(
+        "INSERT INTO Implants(CookieHash,LastSeen,ListenerId)
+            VALUES(?1,?2,?3)",
+        params![
+            implant_cookie_hash,
+            time_elapsed_now.unwrap().as_secs(),
+            listener_id
+        ]
+    );
+
+    if res.is_ok()
+    {
+        if res.unwrap() == 1
+        {
+            flag = true;
+        }
+    }
+
+    return flag;
+}
+
 pub fn get_listeners() -> Vec<GenericListener>
 {
     let mut listeners: Vec<GenericListener> = Vec::new();
@@ -173,82 +255,34 @@ pub fn get_listeners() -> Vec<GenericListener>
     return listeners;
 }
 
-pub fn remove_listener(listener_id: u16) -> bool
+pub fn get_implants() -> Vec<GenericImplant>
 {
-    let mut flag: bool = false;
+    let mut implants: Vec<GenericImplant> = Vec::new();
     let conn: Connection = Connection::open(DB_NAME).unwrap();
 
-    let res: Result<usize, rusqlite::Error> = conn.execute(
-        "DELETE FROM Listeners
-        WHERE Id=?1",
-        params![
-            listener_id
-        ]
-    );
-
-    if !res.is_err()
-    {
-        if res.unwrap() != 0
-        {
-            flag = true;
-        }   
-    }
-
-    return flag;
-}
-
-pub fn check_if_implant_in_db(implant_cookie_hash: &str) -> bool
-{
-    let mut flag: bool = false;
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
-
-    let query_result: Result<String, _> = conn.query_row(
-        "SELECT CookieHash
+    let mut statement: Statement = conn.prepare(
+        "SELECT Id, ListenerId, LastSeen
         FROM Implants
-        WHERE CookieHash = ?1",
-        params![implant_cookie_hash],
-        |row| row.get(0),
-    );
+    ").unwrap();
 
-    if query_result.is_ok()
+    let mut rows = statement.query([]).unwrap();
+
+    while let Some(row) = rows.next().unwrap()
     {
-        if query_result.unwrap() == implant_cookie_hash
+        let implant_id: u16 = row.get(0).unwrap();
+        let listener_id: u16 = row.get(1).unwrap();
+        let last_seen: u64 = row.get(2).unwrap();
+
+        let generic_implant: GenericImplant = GenericImplant
         {
-            flag = true;
-        }   
+            id: implant_id,
+            listener_id: listener_id,
+            last_seen: last_seen,
+            data: Box::new(0)
+        };
+
+        implants.push(generic_implant);
     }
 
-    return flag;
-}
-
-pub fn insert_implant(listener_id: u16, implant_cookie_hash: &str) -> bool
-{
-    let mut flag: bool = false;
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
-
-    let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().elapsed();
-    if time_elapsed_now.is_err()
-    {
-        return flag;
-    }
-
-    let res: Result<usize, rusqlite::Error> = conn.execute(
-        "INSERT INTO Implants(CookieHash,LastSeen,ListenerId)
-            VALUES(?1,?2,?3)",
-        params![
-            implant_cookie_hash,
-            time_elapsed_now.unwrap().as_secs(),
-            listener_id
-        ]
-    );
-
-    if res.is_ok()
-    {
-        if res.unwrap() == 1
-        {
-            flag = true;
-        }
-    }
-
-    return flag;
+    return implants;
 }

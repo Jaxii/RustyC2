@@ -57,7 +57,7 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
                 {
                     println!("[+] Adding to database implant with hash: {}\n", implant_cookie_hash);
 
-                    if database::insert_implant(listener_id, &implant_cookie_hash)
+                    if database::add_implant(listener_id, &implant_cookie_hash)
                     {
                         println!("[+] Implant successfully added to the database");
                     }
