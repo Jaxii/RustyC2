@@ -2,7 +2,7 @@ use std::{net::IpAddr, str::FromStr};
 use rusqlite::{params, Connection, Result, Statement};
 use std::time::{SystemTime, SystemTimeError, Duration};
 
-use crate::models::{HTTPListener, GenericListener, ListenerState, ListenerProtocol, GenericImplant};
+use crate::models::{HTTPListener, GenericListener, ListenerState, ListenerProtocol, GenericImplant, self};
 
 pub const DB_NAME: &'static str = "db.sqlite3";
 
@@ -52,6 +52,17 @@ pub fn prepare_db() -> Result<()>
         []
     )?;
 
+    conn.execute(
+        "UPDATE Listeners
+        SET State = ?1
+        WHERE State = ?2
+        ",
+        params![
+            ListenerState::Suspended.to_string(),
+            ListenerState::Active.to_string()
+        ]
+    )?;
+
     Ok(())
 }
 
@@ -92,10 +103,10 @@ pub fn insert_http_listener(listener: HTTPListener) -> bool
 
     let mut res = conn.execute(
         "INSERT INTO Listeners(Protocol,State)
-            VALUES(?1,?2)",
+            VALUES(?1, ?2)",
         params![
             "HTTP",
-            listener.state.to_string()
+            models::ListenerState::Created.to_string()
         ]
     );
 
@@ -105,7 +116,7 @@ pub fn insert_http_listener(listener: HTTPListener) -> bool
 
         res = conn.execute(
             "INSERT INTO HttpListenerSettings(ListenerId,IpAddress,Port,Host)
-                VALUES(?1,?2,?3,?4)",
+                VALUES(?1, ?2, ?3, ?4)",
             params![
                 row_id,
                 listener.address.to_string(),
@@ -130,7 +141,7 @@ pub fn remove_listener(listener_id: u16) -> bool
 
     let res: Result<usize, rusqlite::Error> = conn.execute(
         "DELETE FROM Listeners
-        WHERE Id=?1",
+        WHERE Id = ?1",
         params![
             listener_id
         ]
@@ -186,7 +197,7 @@ pub fn add_implant(listener_id: u16, implant_cookie_hash: &str) -> bool
 
     let res: Result<usize, rusqlite::Error> = conn.execute(
         "INSERT INTO Implants(CookieHash,LastSeen,ListenerId)
-            VALUES(?1,?2,?3)",
+            VALUES(?1, ?2, ?3)",
         params![
             implant_cookie_hash,
             time_elapsed_now.unwrap().as_secs(),
@@ -221,7 +232,7 @@ pub fn get_listeners() -> Vec<GenericListener>
 
     while let Some(row) = rows.next().unwrap()
     {
-        let id: u16 = row.get(0).unwrap();
+        let listener_id: u16 = row.get(0).unwrap();
         let protocol: String = row.get(1).unwrap();
         let listener_protocol: ListenerProtocol = ListenerProtocol::from_str(protocol.as_str()).unwrap();
         let state: String = row.get(2).unwrap();
@@ -235,8 +246,6 @@ pub fn get_listeners() -> Vec<GenericListener>
         {
             let listener: HTTPListener = HTTPListener
             {
-                id: id,
-                state: listener_state,
                 address: listener_address,
                 host: host,
                 port: port
@@ -244,7 +253,9 @@ pub fn get_listeners() -> Vec<GenericListener>
 
             let generic_listener: GenericListener = GenericListener
             {
+                id: listener_id,
                 protocol: ListenerProtocol::HTTP,
+                state: listener_state,
                 data: Box::new(listener)
             };
 
@@ -294,7 +305,7 @@ pub fn remove_implant(implant_id: u16) -> bool
 
     let res: Result<usize, rusqlite::Error> = conn.execute(
         "DELETE FROM Implants
-        WHERE Id=?1",
+        WHERE Id = ?1",
         params![
             implant_id
         ]
@@ -308,5 +319,42 @@ pub fn remove_implant(implant_id: u16) -> bool
         }   
     }
 
+    return flag;
+}
+
+pub fn set_listener_state(listener_id: u16, listener_state: ListenerState) -> bool
+{
+    let mut flag: bool = false;
+    let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
+    
+    if conn_result.is_err()
+    {
+        return false;
+    }
+
+    let conn: Connection = conn_result.unwrap();
+
+    let res: Result<usize, rusqlite::Error> = conn.execute(
+        "UPDATE Listeners
+        SET State = ?1
+        WHERE Id = ?2",
+        params![
+            listener_state.to_string(),
+            listener_id
+        ]
+    );
+
+    if res.is_ok()
+    {
+        if res.unwrap() == 1
+        {
+            flag = true;
+        }
+    }
+    else
+    {
+        println!("{}", res.unwrap());
+    }
+    
     return flag;
 }

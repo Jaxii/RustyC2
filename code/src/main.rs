@@ -1,4 +1,5 @@
 use lazy_static::{lazy_static, __Deref};
+use std::sync::mpsc::{Sender, channel, Receiver};
 use std::{io::Write};
 
 mod settings;
@@ -6,7 +7,7 @@ mod models;
 mod database;
 mod http_server;
 
-use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings};
+use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings, ListenerSignal};
 
 use crate::{http_server::start_listener, models::GenericImplant};
 
@@ -20,6 +21,8 @@ lazy_static!
 async fn main()
 {
     database::prepare_db().unwrap();
+
+    let mut listeners_threads_channels: Vec<(u16, Sender<ListenerSignal>)> = Vec::new();
 
     loop
     {
@@ -76,7 +79,7 @@ async fn main()
         }
         else if keyword == "listeners"
         {
-            if process_input_listeners("listeners".to_string()) == "exit"
+            if process_input_listeners("listeners".to_string(), &mut listeners_threads_channels) == "exit"
             {
                 break;
             };
@@ -91,7 +94,10 @@ async fn main()
     }
 }
 
-fn process_input_listeners(tag: String) -> &'static str
+fn process_input_listeners(
+    tag: String,
+    vector_thread_channels: &mut Vec<(u16, Sender<ListenerSignal>)>
+) -> &'static str
 {
     loop
     {
@@ -200,25 +206,107 @@ fn process_input_listeners(tag: String) -> &'static str
             }
         }
         else if keyword == "start"
+        {
+            let listener_id_option: Option<&&str> = split.get(1);
+            if listener_id_option.is_none()
             {
-                let listener_id_option: Option<&&str> = split.get(1);
-                if listener_id_option.is_none()
-                {
-                    // show command help message
-                    continue;
-                }
-
-                let listener_id_int: Result<u16, _> = listener_id_option.unwrap().parse();
-                if listener_id_int.is_err()
-                {
-                    println!("[!] Couldn't convert the parameter to an integer");
-                    continue;
-                }
-
-                std::thread::spawn(move || {
-                    start_listener(listener_id_int.unwrap())
-                });
+                println!("[+] Usage:\n\tstart <id>");
+                continue;
             }
+
+            let listener_id_int: Result<u16, _> = listener_id_option.unwrap().parse();
+            if listener_id_int.is_err()
+            {
+                println!("[!] Couldn't convert the parameter to an integer");
+                continue;
+            }
+
+            let listener_id_int_value: u16 = listener_id_int.unwrap();
+
+            if listener_id_int_value == 0
+            {
+                continue;
+            }
+
+            
+            let listeners: Vec<GenericListener> = crate::database::get_listeners();
+            let mut listener_id_exists: bool = false;
+
+            for generic_listener in listeners
+            {
+                if let ListenerProtocol::HTTP = generic_listener.protocol  
+                {
+                    if generic_listener.id == listener_id_int_value
+                    {
+                        listener_id_exists = true;
+                        break;
+                    }
+                }
+            }
+
+            if listener_id_exists
+            {
+                let (tx, rx): (Sender<ListenerSignal>, Receiver<ListenerSignal>) = channel();            
+
+                std::thread::spawn(move || start_listener(listener_id_int_value, rx));
+    
+                vector_thread_channels.push((listener_id_int_value, tx));
+            }
+            else {
+                println!("[!] The identifier you specified is not associated with any listeners");
+            }
+        }
+        else if keyword == "stop"
+        {
+            let listener_id_option: Option<&&str> = split.get(1);
+            if listener_id_option.is_none()
+            {
+                println!("[+] Usage:\n\tstop <id>");
+                continue;
+            }
+
+            let listener_id_int: Result<u16, _> = listener_id_option.unwrap().parse();
+            if listener_id_int.is_err()
+            {
+                println!("[!] Couldn't convert the parameter to an integer");
+                continue;
+            }
+
+            let listener_id_int_value: u16 = listener_id_int.unwrap();
+            
+            if crate::database::set_listener_state(listener_id_int_value, models::ListenerState::Suspended)
+            {
+                println!("[+] Changed the state of the listener");
+            }
+            else
+            {
+                println!("[!] Failed to change the state of the listener");
+            }
+
+            let thread_join_handle_index: Option<usize> = vector_thread_channels.iter().position(
+                |x| x.0 == listener_id_int_value
+            );
+
+            if thread_join_handle_index.is_some()
+            {
+                let vector_element: (u16, Sender<ListenerSignal>) = vector_thread_channels.remove(thread_join_handle_index.unwrap());
+                let tx = vector_element.1;
+
+                match tx.send(ListenerSignal::StopListener)
+                {
+                    Ok(_) => {
+                        println!("[+] Sent STOP signal to the listener")
+                    },
+                    Err(_) => {
+                        println!("[!] Couldn't send the stop signal to the listener");
+                    }
+                }
+            }
+            else
+            {
+                println!("[!] Failed to retrieve to join handle of the listener's thread")
+            }
+        }
     }
 }
 
@@ -468,21 +556,21 @@ fn print_help_listeners_create()
     println!();
 }
 
-fn list_listeners()
+fn list_listeners() -> Vec<GenericListener>
 {
     let listeners: Vec<GenericListener> = crate::database::get_listeners();  
 
     if listeners.is_empty()
     {
         println!("[+] No listeners found");
-        return;
+        return listeners;
     }
 
     println!("+----+------------+-----------------+-------+");
     println!("| ID |   STATE    |     ADDRESS     |  PORT |");
     println!("+----+------------+-----------------+-------+");
 
-    for listener in listeners
+    for listener in listeners.iter()
     {
 
         if let ListenerProtocol::HTTP = listener.protocol
@@ -491,8 +579,8 @@ fn list_listeners()
 
             println!(
                 "| {0:^2} | {1:^10} | {2:^15} | {3:^5} |",
-                http_listener.id,
-                http_listener.state,
+                listener.id,
+                listener.state,
                 http_listener.address,
                 http_listener.port
             );
@@ -500,6 +588,8 @@ fn list_listeners()
     }
 
     println!("+----+------------+-----------------+-------+");
+
+    return listeners;
 }
 
 fn list_implants()

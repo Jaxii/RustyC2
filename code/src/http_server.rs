@@ -2,6 +2,10 @@ extern crate regex;
 
 use lazy_static::lazy_static;
 use std::string::FromUtf8Error;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::TryRecvError;
+use std::thread;
+use std::time;
 use regex::bytes::{Captures, Match};
 use std::io;
 use std::str;
@@ -10,6 +14,8 @@ use std::net::TcpListener;
 use std::net::TcpStream;
 use regex::bytes::Regex;
 
+use crate::models::ListenerSignal;
+use crate::models::ListenerState;
 use crate::settings;
 use crate::database;
 
@@ -77,7 +83,7 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
     stream.flush().unwrap();
 }
 
-pub fn start_listener(listener_id: u16)
+pub fn start_listener(listener_id: u16, rx: Receiver<ListenerSignal>)
 {
     let address: String;
     let port: u16;
@@ -95,21 +101,47 @@ pub fn start_listener(listener_id: u16)
     {
         println!("\n[!] Couldn't bind the listener to the specified address");
         println!("[!] Is it already in use?");
+        return;
     }
     else
     {
+
+        if crate::database::set_listener_state(listener_id, ListenerState::Active){
+            println!("\n[+] Set listener as active");
+        }
+        else
+        {
+            println!("\n[!] Error while setting the listener as active");
+            return;
+        }
+
         let listener: TcpListener = bind_result.unwrap();
+        listener.set_nonblocking(true).expect("Cannot set non-blocking");
+
         for stream in listener.incoming()
         {
             match stream {
                 Ok(s) =>
                 {
-                    // do something with the TcpStream
+                    // handle the incoming connection
                     handle_connection(s, listener_id);
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock =>
                 {
-                    break;
+                    thread::sleep(time::Duration::from_secs(1));
+
+                    let msg_result = rx.try_recv();
+                    match msg_result
+                    {
+                        Ok(b) => {
+                            match b
+                            {
+                                ListenerSignal::StopListener => return
+                            }
+                        },
+                        Err(TryRecvError::Disconnected) => return,
+                        Err(TryRecvError::Empty) => continue
+                    }
                 }
                 Err(e) => panic!("encountered IO error: {}", e),
             }

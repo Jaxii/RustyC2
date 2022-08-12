@@ -7,28 +7,14 @@ use std::str::{FromStr, Chars};
 use crate::database;
 pub struct GenericListener
 {
+    pub id: u16,
     pub protocol: ListenerProtocol,
+    pub state: ListenerState,
     pub data: Box<dyn Any>
-}
-
-pub struct TCPListener
-{
-    pub state: ListenerState,
-    pub address: IpAddr,
-    pub port: u16
-}
-
-pub struct UDPListener
-{
-    pub state: ListenerState,
-    pub address: IpAddr,
-    pub port: u16
 }
 
 pub struct HTTPListener
 {
-    pub id: u16,
-    pub state: ListenerState,
     pub address: IpAddr,
     pub port: u16,
     pub host: String
@@ -54,15 +40,13 @@ pub enum ListenerProtocol
 pub enum ListenerState
 {
     Created,
-    Running,
+    Active,
     Suspended
 }
 
-pub enum ImplantPlatform
+pub enum ListenerSignal
 {
-    Windows,
-    Linux,
-    MacOS
+    StopListener
 }
 
 pub trait ManageSettings
@@ -75,7 +59,7 @@ impl fmt::Display for ListenerState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
        match *self {
            ListenerState::Created => "Created".fmt(f),
-           ListenerState::Running => "Running".fmt(f),
+           ListenerState::Active => "Active".fmt(f),
            ListenerState::Suspended => "Suspended".fmt(f),
        }
     }
@@ -93,16 +77,6 @@ impl fmt::Display for ListenerProtocol {
     }
 }
 
-impl fmt::Display for ImplantPlatform {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-       match *self {
-            ImplantPlatform::Windows => "Windows".fmt(f),
-            ImplantPlatform::Linux => "Linux".fmt(f),
-            ImplantPlatform::MacOS => "macOS".fmt(f)
-       }
-    }
-}
-
 impl FromStr for ListenerState
 {
     type Err = ();
@@ -110,7 +84,7 @@ impl FromStr for ListenerState
     fn from_str(input: &str) -> Result<ListenerState, Self::Err> {
         match input {
             "Created"  => Ok(ListenerState::Created),
-            "Running"  => Ok(ListenerState::Running),
+            "Active"  => Ok(ListenerState::Active),
             "Suspended"  => Ok(ListenerState::Suspended),
             _      => Err(()),
         }
@@ -133,37 +107,13 @@ impl FromStr for ListenerProtocol
     }
 }
 
-impl TCPListener
-{
-    const PROTOCOL: ListenerProtocol = ListenerProtocol::TCP;
-
-    fn create(address: IpAddr, port: u16) -> TCPListener
-    {
-        TCPListener
-        {
-            state: ListenerState::Created,
-            address: address,
-            port: port
-        }
-    }
-}
-
-impl UDPListener
-{
-    const PROTOCOL: ListenerProtocol = ListenerProtocol::UDP;
-}
-
 impl HTTPListener
 {
-    const PROTOCOL: ListenerProtocol = ListenerProtocol::HTTP;
-
     pub fn create(address: String, port: u16) -> Result<HTTPListener, Box<dyn std::error::Error>>
     {
         let ip_address: Result<IpAddr, AddrParseError> = address.parse::<IpAddr>();
         Ok(HTTPListener
         {
-            id: 0,
-            state: ListenerState::Created,
             address: ip_address?,
             host: String::from("localhost"),
             port: port
