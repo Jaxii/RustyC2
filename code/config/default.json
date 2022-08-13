@@ -4,7 +4,9 @@
         "port": 4444,
         "http": {
             "pull_method": "GET",
+            "pull_endpoint": "index.php",
             "push_method": "POST",
+            "push_endpoint": "submit.php",
             "cookie_name": "PHPSESSID",
             "default_page_path": "./static/http/apache_default_page.html",
             "default_error_page_path": "./static/http/apache_default_error_page.html"

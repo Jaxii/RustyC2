@@ -26,7 +26,9 @@ pub struct Listener
 pub struct HttpListenerSettings
 {
     pub pull_method: String,
+    pub pull_endpoint: String,
     pub push_method: String,
+    pub push_endpoint: String,
     pub cookie_name: String,
     pub default_page_path: String,
     pub default_error_page_path: String
