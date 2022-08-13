@@ -1,6 +1,8 @@
 extern crate regex;
 
 use lazy_static::lazy_static;
+use std::fs;
+use std::path::Path;
 use std::string::FromUtf8Error;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::TryRecvError;
@@ -8,7 +10,6 @@ use std::thread;
 use std::time;
 use regex::bytes::{Captures, Match};
 use std::io;
-use std::str;
 use std::io::prelude::*;
 use std::net::TcpListener;
 use std::net::TcpStream;
@@ -31,21 +32,32 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
     let mut buffer: [u8; 1024] = [0; 1024];
     stream.read(&mut buffer).unwrap();
 
-    let get: &[u8; 16] = b"GET / HTTP/1.1\r\n";
+    let get: &[u8; 6] = b"GET / ";
     let http_cookie = &CONFIG.listener.http.cookie_name;
-    let regex_string = format!("Cookie: {}=([a-f0-9A-F]*)", http_cookie);
-    let re = Regex::new(regex_string.as_str()).unwrap();
-
+    
     // Respond with greetings or a 404,
     // depending on the data in the request
-    let (status_line, filename) = if buffer.starts_with(get)
+    let (http_response_headers, response_body_page_path) = if buffer.starts_with(get)
     {
-        ("HTTP/1.1 200 OK\r\n\r\n", "Hello")
+        ("HTTP/1.1 200 OK\r\n\r\n", &CONFIG.listener.http.default_page_path)
     } else {
-        ("HTTP/1.1 404 NOT FOUND\r\n\r\n", "Not found")
+        ("HTTP/1.1 404 Not Found\r\n\r\n", &CONFIG.listener.http.default_error_page_path)
     };
-    let contents: &str = filename;
 
+    let http_response_body = if Path::new(response_body_page_path).exists()
+    {
+        match fs::read(response_body_page_path)
+        {
+            Ok(v) => v,
+            Err(_) => vec![]
+        }
+    }
+    else {
+        vec![]
+    };
+
+    let regex_string = format!("Cookie: {}=([a-f0-9A-F]*)", http_cookie);
+    let re = Regex::new(regex_string.as_str()).unwrap();
     let caps: Option<Captures> = re.captures(&buffer);
 
     if caps.is_some()
@@ -80,8 +92,8 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
 
     // Write response back to the stream,
     // and flush the stream to ensure the response is sent back to the client
-    let response: String = format!("{status_line}{contents}");
-    stream.write_all(response.as_bytes()).unwrap();
+    stream.write_all(http_response_headers.as_bytes()).unwrap();
+    stream.write_all(&http_response_body).unwrap();
     stream.flush().unwrap();
 }
 

@@ -12,3 +12,8 @@ target/
 
 # Ignore folders containing implants source code
 implants/
+implants/*
+
+# Ignore static assets
+static/
+static/*

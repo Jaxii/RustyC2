@@ -5,7 +5,9 @@
         "http": {
             "pull_method": "GET",
             "push_method": "POST",
-            "cookie_name": "PHPSESSID"
+            "cookie_name": "PHPSESSID",
+            "default_page_path": "./static/http/apache_default_page.html",
+            "default_error_page_path": "./static/http/apache_default_error_page.html"
         }
     },
     "implant": {
