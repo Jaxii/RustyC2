@@ -8,16 +8,32 @@ https://blog.logrocket.com/configuration-management-in-rust-web-services/
 */
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct Settings
+{
+    pub listener: Listener,
+    pub implant: Implant
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct Listener
 {
     pub port: u16,
     pub address: String,
+    pub http: HttpListenerSettings
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Settings
+pub struct HttpListenerSettings
 {
-    pub listener: Listener,
+    pub pull_method: String,
+    pub push_method: String,
+    pub cookie_name: String
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Implant
+{
+    pub sleep: u32,
 }
 
 /*

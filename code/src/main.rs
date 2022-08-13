@@ -368,7 +368,7 @@ fn process_input_implants(tag: String) -> &'static str
             let implant_id: u16 = first_argument_int.unwrap();
             if database::remove_implant(implant_id)
             {
-                println!("[+] Successfully remove the implant {0}", implant_id);
+                println!("[+] Successfully removed the implant {0}", implant_id);
             }
             else
             {

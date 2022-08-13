@@ -32,7 +32,9 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
     stream.read(&mut buffer).unwrap();
 
     let get: &[u8; 16] = b"GET / HTTP/1.1\r\n";
-    let re = Regex::new(r"Cookie: PHPSESSID=([a-f0-9A-F]*)").unwrap();
+    let http_cookie = &CONFIG.listener.http.cookie_name;
+    let regex_string = format!("Cookie: {}=([a-f0-9A-F]*)", http_cookie);
+    let re = Regex::new(regex_string.as_str()).unwrap();
 
     // Respond with greetings or a 404,
     // depending on the data in the request
