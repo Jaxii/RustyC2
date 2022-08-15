@@ -542,7 +542,8 @@ fn list_implants()
             {
                 format!("{}h {}m ago", time_diff_seconds / 3600, (time_diff_seconds % 3600 ) / 60)
             }
-        } else
+        }
+        else
         {
             format!("{}", implant.last_seen)
         };

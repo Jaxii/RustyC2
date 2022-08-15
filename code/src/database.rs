@@ -42,7 +42,7 @@ pub fn prepare_db() -> Result<()>
     conn.execute(
         "CREATE TABLE IF NOT EXISTS Implants (
             Id              INTEGER PRIMARY KEY,
-            CookieHash      VARCHAR(32),
+            CookieHash      VARCHAR(32) UNIQUE,
             LastSeen        INTEGER NOT NULL,
             ListenerId      INTEGER,
             FOREIGN KEY(ListenerId)
@@ -341,6 +341,49 @@ pub fn set_listener_state(listener_id: u16, listener_state: ListenerState) -> bo
         params![
             listener_state.to_string(),
             listener_id
+        ]
+    );
+
+    if res.is_ok()
+    {
+        if res.unwrap() == 1
+        {
+            flag = true;
+        }
+    }
+    else
+    {
+        println!("{}", res.unwrap());
+    }
+    
+    return flag;
+}
+
+pub fn update_implant_timestamp(implant_cookie_hash: &str) -> bool
+{
+    let mut flag: bool = false;
+    let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
+    
+    if conn_result.is_err()
+    {
+        return flag;
+    }
+
+    let conn: Connection = conn_result.unwrap();
+
+    let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
+    if time_elapsed_now.is_err()
+    {
+        return flag;
+    }
+
+    let res: Result<usize, rusqlite::Error> = conn.execute(
+        "UPDATE Implants
+        SET LastSeen = ?1
+        WHERE CookieHash = ?2",
+        params![
+            time_elapsed_now.unwrap().as_secs(),
+            implant_cookie_hash
         ]
     );
 

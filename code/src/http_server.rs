@@ -4,16 +4,13 @@ use lazy_static::lazy_static;
 use std::fs;
 use std::path::Path;
 use std::string::FromUtf8Error;
-use std::sync::mpsc::Receiver;
-use std::sync::mpsc::TryRecvError;
+use std::sync::mpsc::{Receiver, TryRecvError};
 use std::thread;
 use std::time;
-use regex::bytes::{Captures, Match};
+use regex::bytes::{Captures, Match, Regex};
 use std::io;
 use std::io::prelude::*;
-use std::net::TcpListener;
-use std::net::TcpStream;
-use regex::bytes::Regex;
+use std::net::{TcpListener, TcpStream};
 
 use crate::models::ListenerSignal;
 use crate::models::ListenerState;
@@ -64,6 +61,14 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
                 println!("[!] Failed to add the implant to the database");
             }
         }
+        else
+        {
+            if ! database::update_implant_timestamp(&implant_auth_cookie)
+            {
+                println!("[!] Couldn't update the timestamp of the implant with this cookie");
+                println!("\t{}", &implant_auth_cookie);
+            }
+        }
     }
 
     // Write response back to the stream,
@@ -95,7 +100,6 @@ pub fn start_listener(listener_id: u16, rx: Receiver<ListenerSignal>)
     }
     else
     {
-
         if crate::database::set_listener_state(listener_id, ListenerState::Active){
             println!("\n[+] Set listener as active");
         }
