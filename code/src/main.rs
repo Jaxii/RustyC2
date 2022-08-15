@@ -1,5 +1,6 @@
 use lazy_static::{lazy_static, __Deref};
 use std::sync::mpsc::{Sender, channel, Receiver};
+use std::time::{Duration, SystemTimeError, SystemTime};
 use std::{io::Write};
 
 mod settings;
@@ -521,14 +522,36 @@ fn list_implants()
     println!("| ID |  Listener  |    Last Seen    |");
     println!("+----+------------+-----------------+");
 
+    let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
+    let time_now_seconds: u64 = time_elapsed_now.as_ref().unwrap().as_secs();
+
     for implant in implants
     {
+        let last_seen_string: String = if ! time_elapsed_now.is_err()
+        {
+            let time_diff_seconds = time_now_seconds - implant.last_seen;
+
+            if time_diff_seconds <= 59 {
+                format!("{}s ago", time_diff_seconds)
+            }
+            else if time_diff_seconds <= 3599
+            {
+                format!("{}m {}s ago", time_diff_seconds / 60, time_diff_seconds % 60)
+            }
+            else
+            {
+                format!("{}h {}m ago", time_diff_seconds / 3600, (time_diff_seconds % 3600 ) / 60)
+            }
+        } else
+        {
+            format!("{}", implant.last_seen)
+        };
 
         println!(
             "| {0:^2} | {1:^10} | {2:^15} |",
             implant.id,
             implant.listener_id,
-            implant.last_seen,
+            last_seen_string,
         );
     }
 
