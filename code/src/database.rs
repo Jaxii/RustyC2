@@ -56,8 +56,9 @@ pub fn prepare_db() -> Result<()>
         "CREATE TABLE IF NOT EXISTS Tasks (
             Id              INTEGER PRIMARY KEY,
             ImplantId       INTEGER NOT NULL,
+            Command         TEXT,
             Date            INTEGER NOT NULL,
-            Status          INTEGER,
+            Status          INTEGER NOT NULL,
             Output          TEXT,
             FOREIGN KEY(ImplantId)
                 REFERENCES Implants(Id)
@@ -172,26 +173,47 @@ pub fn remove_listener(listener_id: u16) -> bool
     return flag;
 }
 
-pub fn check_if_implant_in_db(implant_cookie_hash: &str) -> bool
+pub fn check_if_implant_exists(implant_id: Option<u16>, implant_cookie_hash: Option<&str>) -> bool
 {
     let mut flag: bool = false;
     let conn: Connection = Connection::open(DB_NAME).unwrap();
 
-    let query_result: Result<String, _> = conn.query_row(
-        "SELECT CookieHash
-        FROM Implants
-        WHERE CookieHash = ?1",
-        params![implant_cookie_hash],
-        |row| row.get(0),
-    );
-
-    if query_result.is_ok()
+    if implant_id.is_some()
     {
-        if query_result.unwrap() == implant_cookie_hash
+        let query_result: Result<u16, _> = conn.query_row(
+            "SELECT Id
+            FROM Implants
+            WHERE Id = ?1",
+            params![implant_id.unwrap()],
+            |row| row.get(0),
+        );
+
+        match query_result
         {
-            flag = true;
-        }   
-    }
+            Ok(_) => {
+                flag = true;
+            },
+            Err(_) => {}
+        }
+    }  
+    else if implant_cookie_hash.is_some()
+    {
+        let query_result: Result<String, _> = conn.query_row(
+            "SELECT CookieHash
+            FROM Implants
+            WHERE CookieHash = ?1",
+            params![implant_cookie_hash.unwrap()],
+            |row| row.get(0),
+        );
+
+        match query_result
+        {
+            Ok(_) => {
+                flag = true;
+            },
+            Err(_) => {}
+        }
+    };
 
     return flag;
 }
@@ -398,6 +420,51 @@ pub fn update_implant_timestamp(implant_cookie_hash: &str) -> bool
         params![
             time_elapsed_now.unwrap().as_secs(),
             implant_cookie_hash
+        ]
+    );
+
+    if res.is_ok()
+    {
+        if res.unwrap() == 1
+        {
+            flag = true;
+        }
+    }
+    else
+    {
+        println!("{}", res.unwrap());
+    }
+    
+    return flag;
+}
+
+pub fn create_implant_task(implant_id: u16, task_name: &str) -> bool
+{
+    let mut flag: bool = false;
+    let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
+    
+    if conn_result.is_err()
+    {
+        return flag;
+    }
+
+    let conn: Connection = conn_result.unwrap();
+
+    let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
+    if time_elapsed_now.is_err()
+    {
+        return flag;
+    }
+
+    let res: Result<usize, rusqlite::Error> = conn.execute(
+        "INSERT INTO Tasks(ImplantId, Command, Date, Status)
+        VALUES (?1, ?2, ?3, ?4)
+        ",
+        params![
+            implant_id,
+            task_name,
+            time_elapsed_now.unwrap().as_secs(),
+            0
         ]
     );
 

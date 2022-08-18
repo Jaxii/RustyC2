@@ -43,12 +43,11 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
         vec![]
     };
 
-
     let (is_implant, implant_auth_cookie) = check_if_implant(buffer);
 
     if is_implant
     {
-        if ! database::check_if_implant_in_db(&implant_auth_cookie)
+        if ! database::check_if_implant_exists(None, Some(&implant_auth_cookie))
         {
             println!("\n[+] Adding to database implant with hash: {}", &implant_auth_cookie);
 

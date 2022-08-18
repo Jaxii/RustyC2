@@ -84,3 +84,26 @@ pub fn print_help_listeners_create()
     println!();
 }
 
+pub fn print_help_implants_interaction()
+{
+    let help_items = [
+        ("back",        "Return to the previous menu"),
+        ("exit",        "Exit from the framework"),
+        ("hostname",    "Show the name of the host"),
+        ("info",        "Show info about the implant"),
+        ("ls",          "Show files/directories in the current path"),
+        ("addresses",   "Show the IP address of the host"),
+        ("pwd",         "Show the current path"),
+        ("whoami",      "Print the current username"),
+    ];
+
+    println!();
+    println!("{0: <20}{1}", "Command", "Description");
+    println!("{0: <20}{1}", "-------", "-----------");
+
+    for item in help_items {
+        println!("{0: <20}{1}", item.0, item.1);
+    }
+
+    println!();
+}

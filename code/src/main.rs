@@ -344,6 +344,39 @@ fn process_input_implants(tag: String) -> &'static str
         {
             help::print_help_implants();
         }
+        else if keyword == "interact"
+        {
+            if split.get(1).is_none()
+            {
+                println!("[+] Usage:\n\tinteract <id>");
+                continue;
+            }
+
+            let first_argument: &str = *(split.get(1).unwrap());
+            let first_argument_int: Result<u16, std::num::ParseIntError> = (*first_argument).parse::<u16>();
+
+            if first_argument_int.is_err()
+            {
+                println!("[!] Couldn't convert the parameter to an integer");
+                continue;
+            }
+            
+            let implant_id: u16 = first_argument_int.unwrap();
+
+            if ! database::check_if_implant_exists(Some(implant_id), None)
+            {
+                println!("[!] There's no implant indentified by this ID");
+                continue;
+            }
+
+            let new_tag = format!("implants/{}", implant_id);
+            let tmp_ret_value: &str = process_input_implants_interact(implant_id, new_tag.to_string());
+
+            if tmp_ret_value == "exit"
+            {
+                return "exit";
+            }
+        }
         else if keyword == "list"
         {
             list_implants();
@@ -557,4 +590,53 @@ fn list_implants()
     }
 
     println!("+----+------------+-----------------+");
+}
+
+fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
+{
+    loop
+    {
+        print!("({})> ", tag);
+        std::io::stdout().flush().unwrap();
+
+        let mut input: String = String::new();
+        std::io::stdin().read_line(&mut input).expect("Failed to read input");
+
+        let split: Vec<&str> = input.as_str().trim().split_whitespace().collect::<Vec<&str>>();
+
+        if split.first().is_none()
+        {
+            continue;
+        }
+
+        let keyword: &str = split.first().unwrap().deref();
+
+        if keyword == "back"
+        {
+            return "back";
+        }
+        else if keyword == "exit"
+        {
+            return "exit"
+        }
+        else if keyword == "help"
+        {
+            help::print_help_implants_interaction();
+        }
+        else if keyword == "tasks"
+        {
+            
+        }
+        else if keyword == "whoami"
+        {
+            if database::create_implant_task(implant_id, keyword)
+            {
+                println!("[+] Task created successfully");
+            }
+        }
+        else
+        {
+            continue;
+        }
+    }
 }
