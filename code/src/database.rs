@@ -53,6 +53,20 @@ pub fn prepare_db() -> Result<()>
     )?;
 
     conn.execute(
+        "CREATE TABLE IF NOT EXISTS Tasks (
+            Id              INTEGER PRIMARY KEY,
+            ImplantId       INTEGER NOT NULL,
+            Date            INTEGER NOT NULL,
+            Status          INTEGER,
+            Output          TEXT,
+            FOREIGN KEY(ImplantId)
+                REFERENCES Implants(Id)
+                ON DELETE CASCADE
+        )",
+        []
+    )?;
+
+    conn.execute(
         "UPDATE Listeners
         SET State = ?1
         WHERE State = ?2
