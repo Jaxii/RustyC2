@@ -28,6 +28,16 @@ pub struct GenericImplant
     pub data: Box<dyn Any>
 }
 
+pub struct ImplantTask
+{
+    pub id: u64,
+    pub implant_id: u16,
+    pub command: String,
+    pub datetime: u64,
+    pub status: ImplantTaskStatus,
+    pub output: String
+}
+
 pub enum ListenerProtocol
 {
     TCP,
@@ -47,6 +57,13 @@ pub enum ListenerState
 pub enum ListenerSignal
 {
     StopListener
+}
+
+pub enum ImplantTaskStatus
+{
+    Issued,
+    Pending,
+    Completed
 }
 
 pub trait ManageSettings
@@ -102,6 +119,20 @@ impl FromStr for ListenerProtocol
             "HTTP"  => Ok(ListenerProtocol::HTTP),
             "ICMP"  => Ok(ListenerProtocol::ICMP),
             "DNS"  => Ok(ListenerProtocol::DNS),
+            _      => Err(()),
+        }
+    }
+}
+
+impl FromStr for ImplantTaskStatus
+{
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<ImplantTaskStatus, Self::Err> {
+        match input {
+            "Issued"  => Ok(ImplantTaskStatus::Issued),
+            "Pending"  => Ok(ImplantTaskStatus::Pending),
+            "Completed"  => Ok(ImplantTaskStatus::Completed),
             _      => Err(()),
         }
     }

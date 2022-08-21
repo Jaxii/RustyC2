@@ -2,7 +2,7 @@ use std::{net::IpAddr, str::FromStr};
 use rusqlite::{params, Connection, Result, Statement};
 use std::time::{SystemTime, SystemTimeError, Duration};
 
-use crate::models::{HTTPListener, GenericListener, ListenerState, ListenerProtocol, GenericImplant, self};
+use crate::models::{HTTPListener, GenericListener, ListenerState, ListenerProtocol, GenericImplant, self, ImplantTask, ImplantTaskStatus};
 
 pub const DB_NAME: &'static str = "db.sqlite3";
 
@@ -53,11 +53,11 @@ pub fn prepare_db() -> Result<()>
     )?;
 
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS Tasks (
+        "CREATE TABLE IF NOT EXISTS ImplantTasks (
             Id              INTEGER PRIMARY KEY,
             ImplantId       INTEGER NOT NULL,
             Command         TEXT,
-            Date            INTEGER NOT NULL,
+            DateTime        INTEGER NOT NULL,
             Status          INTEGER NOT NULL,
             Output          TEXT,
             FOREIGN KEY(ImplantId)
@@ -457,7 +457,7 @@ pub fn create_implant_task(implant_id: u16, task_name: &str) -> bool
     }
 
     let res: Result<usize, rusqlite::Error> = conn.execute(
-        "INSERT INTO Tasks(ImplantId, Command, Date, Status)
+        "INSERT INTO ImplantTasks(ImplantId, Command, Date, Status)
         VALUES (?1, ?2, ?3, ?4)
         ",
         params![
@@ -481,4 +481,48 @@ pub fn create_implant_task(implant_id: u16, task_name: &str) -> bool
     }
     
     return flag;
+}
+
+pub fn get_tasks(implant_id: Option<u16>, ignore_completed: bool) -> Vec<ImplantTask>
+{
+    let mut tasks: Vec<ImplantTask> = Vec::new();
+
+    let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
+    
+    if conn_result.is_err()
+    {
+        return tasks;
+    }
+
+    let conn: Connection = conn_result.unwrap();
+
+    let sql_statement: &str = "SELECT Id, ImplantId, Command, DateTime, Status, Output
+    FROM ImplantTasks";
+    let mut statement: Statement = conn.prepare(sql_statement).unwrap();
+
+    let mut rows = statement.query([]).unwrap();
+
+    while let Some(row) = rows.next().unwrap()
+    {
+        let task_id: u64 = row.get(0).unwrap();
+        let implant_id: u16 = row.get(1).unwrap();
+        let task_command: String = row.get(2).unwrap();
+        let task_date_time: u64 = row.get(3).unwrap();
+        let status: String = row.get(4).unwrap();
+        let task_status: ImplantTaskStatus = ImplantTaskStatus::from_str(status.as_str()).unwrap();
+        let task_output: String = row.get(5).unwrap();
+        
+        let implant_task: ImplantTask = ImplantTask {
+            id: task_id,
+            implant_id: implant_id,
+            command: task_command,
+            datetime: task_date_time,
+            status: task_status,
+            output: task_output
+        };
+
+        tasks.push(implant_task);
+    }
+
+    return tasks;
 }
