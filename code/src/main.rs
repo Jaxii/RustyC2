@@ -9,7 +9,7 @@ mod database;
 mod http_server;
 mod help;
 
-use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings, ListenerSignal};
+use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings, ListenerSignal, ImplantTask};
 
 use crate::{http_server::start_listener, models::GenericImplant};
 
@@ -625,7 +625,9 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
         }
         else if keyword == "tasks"
         {
-            
+            let implant_tasks = database::get_tasks(Some(implant_id), true);
+            list_tasks(implant_tasks);
+
         }
         else if keyword == "whoami"
         {
@@ -639,4 +641,22 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
             continue;
         }
     }
+}
+
+fn list_tasks(tasks: Vec<ImplantTask>) {
+    println!("+-----+------------+-----------------+");
+    println!("|  ID  |  Date time |      Status     |");
+    println!("+-----+------------+-----------------+");
+
+    for task in tasks
+    {
+        println!(
+            "| {0:^4} | {1:^10} | {2:^15} |",
+            task.id,
+            task.datetime,
+            task.status
+        );
+    }
+
+    println!("+------+------------+-----------------+");
 }

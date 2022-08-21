@@ -94,6 +94,16 @@ impl fmt::Display for ListenerProtocol {
     }
 }
 
+impl fmt::Display for ImplantTaskStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+       match *self {
+            ImplantTaskStatus::Issued => "Issued".fmt(f),
+            ImplantTaskStatus::Pending => "Pending".fmt(f),
+            ImplantTaskStatus::Completed => "Completed".fmt(f)
+       }
+    }
+}
+
 impl FromStr for ListenerState
 {
     type Err = ();
