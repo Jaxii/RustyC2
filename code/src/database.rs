@@ -56,7 +56,7 @@ pub fn prepare_db() -> Result<()>
         "CREATE TABLE IF NOT EXISTS ImplantTasks (
             Id              INTEGER PRIMARY KEY,
             ImplantId       INTEGER NOT NULL,
-            Command         TEXT,
+            Command         TEXT NOT NULL,
             DateTime        INTEGER NOT NULL,
             Status          INTEGER NOT NULL,
             Output          TEXT,
@@ -457,7 +457,7 @@ pub fn create_implant_task(implant_id: u16, task_name: &str) -> bool
     }
 
     let res: Result<usize, rusqlite::Error> = conn.execute(
-        "INSERT INTO ImplantTasks(ImplantId, Command, Date, Status)
+        "INSERT INTO ImplantTasks(ImplantId, Command, DateTime, Status)
         VALUES (?1, ?2, ?3, ?4)
         ",
         params![
