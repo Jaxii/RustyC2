@@ -1,5 +1,5 @@
 use std::{net::IpAddr, str::FromStr};
-use rusqlite::{params, Connection, Result, Statement};
+use rusqlite::{params, Connection, Result, Statement, ToSql, params_from_iter};
 use std::time::{SystemTime, SystemTimeError, Duration};
 
 use crate::models::{HTTPListener, GenericListener, ListenerState, ListenerProtocol, GenericImplant, self, ImplantTask, ImplantTaskStatus};
@@ -58,7 +58,7 @@ pub fn prepare_db() -> Result<()>
             ImplantId       INTEGER NOT NULL,
             Command         TEXT NOT NULL,
             DateTime        INTEGER NOT NULL,
-            Status          INTEGER NOT NULL,
+            Status          VARCHAR(30) NOT NULL,
             Output          TEXT,
             FOREIGN KEY(ImplantId)
                 REFERENCES Implants(Id)
@@ -458,13 +458,12 @@ pub fn create_implant_task(implant_id: u16, task_name: &str) -> bool
 
     let res: Result<usize, rusqlite::Error> = conn.execute(
         "INSERT INTO ImplantTasks(ImplantId, Command, DateTime, Status)
-        VALUES (?1, ?2, ?3, ?4)
-        ",
+        VALUES (?1, ?2, ?3, ?4)",
         params![
             implant_id,
             task_name,
             time_elapsed_now.unwrap().as_secs(),
-            0
+            ImplantTaskStatus::Issued.to_string()
         ]
     );
 
@@ -483,7 +482,7 @@ pub fn create_implant_task(implant_id: u16, task_name: &str) -> bool
     return flag;
 }
 
-pub fn get_tasks(implant_id: Option<u16>, ignore_completed: bool) -> Vec<ImplantTask>
+pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask>
 {
     let mut tasks: Vec<ImplantTask> = Vec::new();
 
@@ -496,11 +495,24 @@ pub fn get_tasks(implant_id: Option<u16>, ignore_completed: bool) -> Vec<Implant
 
     let conn: Connection = conn_result.unwrap();
 
-    let sql_statement: &str = "SELECT Id, ImplantId, Command, DateTime, Status, Output
-    FROM ImplantTasks";
-    let mut statement: Statement = conn.prepare(sql_statement).unwrap();
+    let mut sql_statement: String = "SELECT Id, ImplantId, Command, DateTime, Status, Output
+        FROM ImplantTasks ".to_string();
 
-    let mut rows = statement.query([]).unwrap();
+    let mut where_condition: String = String::new();
+    let mut vec_params: Vec<String> = Vec::new(); 
+
+    if ignore_completed
+    {
+        where_condition = "WHERE Status != :task_status_completed".to_string();
+        vec_params.push(ImplantTaskStatus::Completed.to_string());
+    }
+
+    sql_statement.push_str(where_condition.as_str());
+    let mut statement: Statement = conn.prepare(sql_statement.as_str()).unwrap();
+
+    let sql_params: Vec<_> = vec_params.iter().map(|x| x as &dyn ToSql).collect();
+
+    let mut rows = statement.query(&*sql_params).unwrap();
 
     while let Some(row) = rows.next().unwrap()
     {
@@ -510,7 +522,11 @@ pub fn get_tasks(implant_id: Option<u16>, ignore_completed: bool) -> Vec<Implant
         let task_date_time: u64 = row.get(3).unwrap();
         let status: String = row.get(4).unwrap();
         let task_status: ImplantTaskStatus = ImplantTaskStatus::from_str(status.as_str()).unwrap();
-        let task_output: String = row.get(5).unwrap();
+        let task_output: String = match row.get(5)
+        {
+            Ok(v) => v,
+            Err(_) => String::new()
+        };
         
         let implant_task: ImplantTask = ImplantTask {
             id: task_id,
@@ -524,5 +540,66 @@ pub fn get_tasks(implant_id: Option<u16>, ignore_completed: bool) -> Vec<Implant
         tasks.push(implant_task);
     }
 
+    return tasks;
+}
+
+pub fn get_implant_tasks(implant_id: u16, ignore_completed: bool) -> Vec<ImplantTask>
+{
+    let mut tasks: Vec<ImplantTask> = Vec::new();
+    
+    let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
+    
+    if conn_result.is_err()
+    {
+        return tasks;
+    }
+    
+    let conn: Connection = conn_result.unwrap();
+    
+    let mut sql_statement: String = "SELECT Id, ImplantId, Command, DateTime, Status, Output
+        FROM ImplantTasks WHERE ImplantId = ?1".to_string();
+
+    let mut where_condition: String = String::new();
+    let mut vec_params: Vec<String> = Vec::new();
+    vec_params.push(implant_id.to_string());
+
+    if ignore_completed
+    {
+        where_condition = "AND Status != ?2".to_string();
+        vec_params.push(ImplantTaskStatus::Completed.to_string());
+    }
+
+    sql_statement.push_str(where_condition.as_str());
+
+    let sql_params: Vec<_> = vec_params.iter().map(|x| x as &dyn ToSql).collect();
+    let mut statement: Statement = conn.prepare(&sql_statement).unwrap();
+    let mut rows = statement.query(params_from_iter(sql_params.iter())).unwrap();
+
+    while let Some(row) = rows.next().unwrap()
+    {
+        let task_id: u64 = row.get(0).unwrap();
+        let implant_id: u16 = row.get(1).unwrap();
+        let task_command: String = row.get(2).unwrap();
+        let task_date_time: u64 = row.get(3).unwrap();
+        let status: String = row.get(4).unwrap();
+        let task_status: ImplantTaskStatus = ImplantTaskStatus::from_str(status.as_str()).unwrap();
+        let task_output: String = match row.get(5)
+        {
+            Ok(v) => v,
+            Err(_) => String::new()
+        };
+        
+        let implant_task: ImplantTask = ImplantTask {
+            id: task_id,
+            implant_id: implant_id,
+            command: task_command,
+            datetime: task_date_time,
+            status: task_status,
+            output: task_output
+        };
+
+        tasks.push(implant_task);
+    }
+    
     return tasks;
 }

@@ -409,6 +409,11 @@ fn process_input_implants(tag: String) -> &'static str
                 println!("[!] Failed to remove the implant {0}", implant_id);
             }
         }
+        else if keyword == "tasks"
+        {
+            let implant_tasks = database::get_all_tasks(true);
+            list_tasks(implant_tasks);
+        }
     }
 }
 
@@ -625,9 +630,8 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
         }
         else if keyword == "tasks"
         {
-            let implant_tasks = database::get_tasks(Some(implant_id), true);
+            let implant_tasks = database::get_implant_tasks(implant_id, true);
             list_tasks(implant_tasks);
-
         }
         else if keyword == "whoami"
         {
@@ -644,9 +648,16 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
 }
 
 fn list_tasks(tasks: Vec<ImplantTask>) {
-    println!("+-----+------------+-----------------+");
+
+    if tasks.len() == 0
+    {
+        println!("[+] No tasks found");
+        return;
+    }
+
+    println!("+------+------------+-----------------+");
     println!("|  ID  |  Date time |      Status     |");
-    println!("+-----+------------+-----------------+");
+    println!("+------+------------+-----------------+");
 
     for task in tasks
     {
