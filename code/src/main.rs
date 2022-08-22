@@ -53,24 +53,24 @@ async fn main()
         {
             if split.get(1).is_some()
             {
-                let help_argument: &&str = split.get(1).unwrap();
+                let help_argument: &str = split.get(1).unwrap().deref();
 
-                if *help_argument == "back"
+                if help_argument == "back"
                 {
                     println!("[+] Usage:\n\tback");
                     println!("[+] Description:\n\tIt allows you to go back to the previous menu");
                 }
-                else if *help_argument == "exit"
+                else if help_argument == "exit"
                 {
                     println!("[+] Usage:\n\texit");
                     println!("[+] Description:\n\tUse it to exit from the program");
                 }
-                else if *help_argument == "listeners"
+                else if help_argument == "listeners" || help_argument == "listener"
                 {
                     println!("[+] Usage:\n\tlisteners");
                     println!("[+] Description:\n\tAccess the listeners menu");
                 }
-                else if *help_argument == "implants"
+                else if help_argument == "implants" || help_argument == "implant"
                 {
                     println!("[+] Usage:\n\timplants");
                     println!("[+] Description:\n\tAccess the implants menu");
@@ -81,14 +81,14 @@ async fn main()
                 help::print_help_main();
             }
         }
-        else if keyword == "listeners"
+        else if keyword == "listeners" || keyword == "listener"
         {
             if process_input_listeners("listeners".to_string(), &mut listeners_threads_channels) == "exit"
             {
                 break;
             };
         }
-        else if keyword == "implants"
+        else if keyword == "implants" || keyword == "implant"
         {
             if process_input_implants("implants".to_string()) == "exit"
             {
@@ -637,9 +637,30 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
         }
         else if keyword == "whoami"
         {
-            if database::create_implant_task(implant_id, keyword)
+
+            let mut new_task_command = keyword;
+            
+            for implant_task_command in &CONFIG.implant.tasks.commands
             {
-                println!("[+] Task issued successfully");
+                if implant_task_command.name != keyword
+                {
+                    continue
+                }
+                
+                if CONFIG.implant.tasks.use_commands_codes
+                {
+                    new_task_command = &implant_task_command.code;
+                } 
+                else if CONFIG.implant.tasks.use_alt_names
+                {
+                    new_task_command = &implant_task_command.alt_name;
+                }
+
+                if database::create_implant_task(implant_id, new_task_command)
+                {
+                    println!("[+] Task issued successfully");
+                    break;
+                }
             }
         }
         else

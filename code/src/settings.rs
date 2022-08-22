@@ -38,6 +38,24 @@ pub struct HttpListenerSettings
 pub struct Implant
 {
     pub sleep: u32,
+    pub tasks: ImplantTaskSettings
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ImplantTaskSettings
+{
+    pub use_commands_codes: bool,
+    pub use_alt_names: bool,
+    pub commands: Vec<ImplantTaskCommand>
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ImplantTaskCommand
+{
+    pub name: String,
+    pub description: String,
+    pub code: String,
+    pub alt_name: String
 }
 
 /*

@@ -13,6 +13,24 @@
         }
     },
     "implant": {
-        "sleep": 5
+        "sleep": 5,
+        "tasks": {
+            "use_commands_codes": true,
+            "use_alt_names": true,
+            "commands": [
+                {
+                    "name": "whoami",
+                    "description": "Display the current username",
+                    "code": "1324",
+                    "alt_name": "strawberry"
+                },
+                {
+                    "name": "pwd",
+                    "description": "Display the path of the current working directory",
+                    "code": "43534",
+                    "alt_name": "lemon"
+                }
+            ]
+        }
     }
 }
