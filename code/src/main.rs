@@ -2,6 +2,7 @@ use lazy_static::{lazy_static, __Deref};
 use std::sync::mpsc::{Sender, channel, Receiver};
 use std::time::{Duration, SystemTimeError, SystemTime};
 use std::{io::Write};
+use chrono::prelude::*;
 
 mod settings;
 mod models;
@@ -655,19 +656,23 @@ fn list_tasks(tasks: Vec<ImplantTask>) {
         return;
     }
 
-    println!("+------+------------+-----------------+");
-    println!("|  ID  |  Date time |      Status     |");
-    println!("+------+------------+-----------------+");
+    println!("+------+------------------------+-----------------+");
+    println!("|  ID  |        Date time       |      Status     |");
+    println!("+------+------------------------+-----------------+");
 
     for task in tasks
     {
+        let naive_date_time = NaiveDateTime::from_timestamp(task.datetime as i64, 0);
+        let datetime: DateTime<Utc> = DateTime::from_utc(naive_date_time, Utc);
+        let newdate = datetime.format("%Y-%m-%d %H:%M:%S");
+
         println!(
-            "| {0:^4} | {1:^10} | {2:^15} |",
+            "| {0:^4} | {1:^20}+0 | {2:^15} |",
             task.id,
-            task.datetime,
+            newdate,
             task.status
         );
     }
 
-    println!("+------+------------+-----------------+");
+    println!("+------+------------------------+-----------------+");
 }
