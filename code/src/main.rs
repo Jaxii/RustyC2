@@ -1,14 +1,15 @@
+use chrono::format::{DelayedFormat, StrftimeItems};
 use lazy_static::{lazy_static, __Deref};
 use std::sync::mpsc::{Sender, channel, Receiver};
 use std::time::{Duration, SystemTimeError, SystemTime};
 use std::{io::Write};
-use chrono::prelude::*;
 
 mod settings;
 mod models;
 mod database;
 mod http_server;
 mod help;
+mod utils;
 
 use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings, ListenerSignal, ImplantTask};
 
@@ -638,7 +639,7 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
         {
             if database::create_implant_task(implant_id, keyword)
             {
-                println!("[+] Task created successfully");
+                println!("[+] Task issued successfully");
             }
         }
         else
@@ -662,14 +663,12 @@ fn list_tasks(tasks: Vec<ImplantTask>) {
 
     for task in tasks
     {
-        let naive_date_time = NaiveDateTime::from_timestamp(task.datetime as i64, 0);
-        let datetime: DateTime<Utc> = DateTime::from_utc(naive_date_time, Utc);
-        let newdate = datetime.format("%Y-%m-%d %H:%M:%S");
+        let formatted_date_time: DelayedFormat<StrftimeItems> = utils::format_date_time(task.datetime, "%Y-%m-%d %H:%M:%S");
 
         println!(
             "| {0:^4} | {1:^20}+0 | {2:^15} |",
             task.id,
-            newdate,
+            formatted_date_time,
             task.status
         );
     }
