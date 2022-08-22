@@ -10,8 +10,15 @@ https://blog.logrocket.com/configuration-management-in-rust-web-services/
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings
 {
+    pub client: ClientSettings,
     pub listener: Listener,
     pub implant: Implant
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ClientSettings
+{
+    pub main_tag: String
 }
 
 #[derive(Debug, Deserialize, Clone)]

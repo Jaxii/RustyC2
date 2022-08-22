@@ -32,7 +32,7 @@ async fn main()
     {
         let mut input: String = String::new();
 
-        print!("(~)> ");
+        print!("({})> ", &CONFIG.client.main_tag);
         std::io::stdout().flush().unwrap();
         std::io::stdin().read_line(&mut input).expect("Failed to read input");
         
