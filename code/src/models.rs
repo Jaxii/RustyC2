@@ -9,7 +9,7 @@ pub struct GenericListener
 {
     pub id: u16,
     pub protocol: ListenerProtocol,
-    pub state: ListenerState,
+    pub status: ListenerStatus,
     pub data: Box<dyn Any>
 }
 
@@ -47,7 +47,7 @@ pub enum ListenerProtocol
     DNS
 }
 
-pub enum ListenerState
+pub enum ListenerStatus
 {
     Created,
     Active,
@@ -72,12 +72,12 @@ pub trait ManageSettings
     fn set_option(&mut self, option: &str, value: &str) -> bool;
 }
 
-impl fmt::Display for ListenerState {
+impl fmt::Display for ListenerStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
        match *self {
-           ListenerState::Created => "Created".fmt(f),
-           ListenerState::Active => "Active".fmt(f),
-           ListenerState::Suspended => "Suspended".fmt(f),
+           ListenerStatus::Created => "Created".fmt(f),
+           ListenerStatus::Active => "Active".fmt(f),
+           ListenerStatus::Suspended => "Suspended".fmt(f),
        }
     }
 }
@@ -104,15 +104,15 @@ impl fmt::Display for ImplantTaskStatus {
     }
 }
 
-impl FromStr for ListenerState
+impl FromStr for ListenerStatus
 {
     type Err = ();
 
-    fn from_str(input: &str) -> Result<ListenerState, Self::Err> {
+    fn from_str(input: &str) -> Result<ListenerStatus, Self::Err> {
         match input {
-            "Created"  => Ok(ListenerState::Created),
-            "Active"  => Ok(ListenerState::Active),
-            "Suspended"  => Ok(ListenerState::Suspended),
+            "Created"  => Ok(ListenerStatus::Created),
+            "Active"  => Ok(ListenerStatus::Active),
+            "Suspended"  => Ok(ListenerStatus::Suspended),
             _      => Err(()),
         }
     }
@@ -176,7 +176,6 @@ impl ManageSettings for HTTPListener
         println!("+------------+----------------------+");
 
         let dict: [(&str, String); 4] = [
-            // ("State", self.state.to_string()),
             ("Protocol", "HTTP".to_string()),
             ("Address", self.address.to_string()),
             ("Port", self.port.to_string()),

@@ -13,7 +13,7 @@ use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream};
 
 use crate::models::{ListenerSignal, ImplantTaskStatus};
-use crate::models::ListenerState;
+use crate::models::ListenerStatus;
 use crate::settings;
 use crate::database;
 
@@ -76,7 +76,7 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
             {
                 http_response_body = prepare_http_response_task_command(task.command);
                 
-                // database::remove_implant_task(task.id);
+                database::update_implant_task_status(task.id, ImplantTaskStatus::Pending);
                 break;
             }
         }
@@ -111,7 +111,7 @@ pub fn start_listener(listener_id: u16, rx: Receiver<ListenerSignal>)
     }
     else
     {
-        if crate::database::set_listener_state(listener_id, ListenerState::Active){
+        if crate::database::set_listener_status(listener_id, ListenerStatus::Active){
             println!("\n[+] Set listener as active");
         }
         else

@@ -4,7 +4,7 @@ use rusqlite::{params, Connection, Result, Statement, ToSql, params_from_iter};
 use std::time::{SystemTime, SystemTimeError, Duration};
 
 use crate::utils;
-use crate::models::{HTTPListener, GenericListener, ListenerState, ListenerProtocol, GenericImplant, self, ImplantTask, ImplantTaskStatus};
+use crate::models::{HTTPListener, GenericListener, ListenerStatus, ListenerProtocol, GenericImplant, self, ImplantTask, ImplantTaskStatus};
 
 pub const DB_NAME: &'static str = "db.sqlite3";
 
@@ -23,7 +23,7 @@ pub fn prepare_db() -> Result<()>
         "CREATE TABLE IF NOT EXISTS Listeners (
             Id          INTEGER PRIMARY KEY,
             Protocol    TEXT NOT NULL,
-            State       TEXT NOT NULL
+            Status      TEXT NOT NULL
         )",
         []
     )?;
@@ -71,12 +71,12 @@ pub fn prepare_db() -> Result<()>
 
     conn.execute(
         "UPDATE Listeners
-        SET State = ?1
-        WHERE State = ?2
+        SET Status = ?1
+        WHERE Status = ?2
         ",
         params![
-            ListenerState::Suspended.to_string(),
-            ListenerState::Active.to_string()
+            ListenerStatus::Suspended.to_string(),
+            ListenerStatus::Active.to_string()
         ]
     )?;
 
@@ -119,11 +119,11 @@ pub fn insert_http_listener(listener: HTTPListener) -> bool
     let conn: Connection = Connection::open(DB_NAME).unwrap();
 
     let mut res = conn.execute(
-        "INSERT INTO Listeners(Protocol,State)
+        "INSERT INTO Listeners(Protocol,Status)
             VALUES(?1, ?2)",
         params![
             "HTTP",
-            models::ListenerState::Created.to_string()
+            models::ListenerStatus::Created.to_string()
         ]
     );
 
@@ -265,7 +265,7 @@ pub fn get_listeners() -> Vec<GenericListener>
     let conn: Connection = Connection::open(DB_NAME).unwrap();
 
     let mut statement: Statement = conn.prepare(
-        "SELECT Id, Protocol, State, IpAddress, Port, Host
+        "SELECT Id, Protocol, Status, IpAddress, Port, Host
         FROM Listeners
         INNER JOIN HttpListenerSettings
             ON Listeners.Id = HttpListenerSettings.ListenerId
@@ -278,8 +278,8 @@ pub fn get_listeners() -> Vec<GenericListener>
         let listener_id: u16 = row.get(0).unwrap();
         let protocol: String = row.get(1).unwrap();
         let listener_protocol: ListenerProtocol = ListenerProtocol::from_str(protocol.as_str()).unwrap();
-        let state: String = row.get(2).unwrap();
-        let listener_state: ListenerState = ListenerState::from_str(state.as_str()).unwrap();
+        let status_string: String = row.get(2).unwrap();
+        let listener_status: ListenerStatus = ListenerStatus::from_str(status_string.as_str()).unwrap();
         let address: String = row.get(3).unwrap();
         let listener_address: IpAddr = address.parse::<IpAddr>().unwrap();
         let port: u16 = row.get(4).unwrap();
@@ -298,7 +298,7 @@ pub fn get_listeners() -> Vec<GenericListener>
             {
                 id: listener_id,
                 protocol: ListenerProtocol::HTTP,
-                state: listener_state,
+                status: listener_status,
                 data: Box::new(listener)
             };
 
@@ -365,7 +365,7 @@ pub fn remove_implant(implant_id: u16) -> bool
     return flag;
 }
 
-pub fn set_listener_state(listener_id: u16, listener_state: ListenerState) -> bool
+pub fn set_listener_status(listener_id: u16, listener_status: ListenerStatus) -> bool
 {
     let mut flag: bool = false;
     let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
@@ -379,10 +379,10 @@ pub fn set_listener_state(listener_id: u16, listener_state: ListenerState) -> bo
 
     let res: Result<usize, rusqlite::Error> = conn.execute(
         "UPDATE Listeners
-        SET State = ?1
+        SET Status = ?1
         WHERE Id = ?2",
         params![
-            listener_state.to_string(),
+            listener_status.to_string(),
             listener_id
         ]
     );
@@ -622,4 +622,44 @@ pub fn get_implant_tasks(
     }
     
     return tasks;
+}
+
+pub fn update_implant_task_status(
+    task_id: u64,
+    new_status: ImplantTaskStatus
+) -> bool
+{
+    let mut flag: bool = false;
+    let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
+    
+    if conn_result.is_err()
+    {
+        return false;
+    }
+
+    let conn: Connection = conn_result.unwrap();
+
+    let res: Result<usize, rusqlite::Error> = conn.execute(
+        "UPDATE ImplantTasks
+        SET Status = ?1
+        WHERE Id = ?2",
+        params![
+            new_status.to_string(),
+            task_id
+        ]
+    );
+
+    if res.is_ok()
+    {
+        if res.unwrap() == 1
+        {
+            flag = true;
+        }
+    }
+    else
+    {
+        println!("{}", res.unwrap());
+    }
+    
+    return flag;
 }

@@ -279,13 +279,13 @@ fn process_input_listeners(
 
             let listener_id_int_value: u16 = listener_id_int.unwrap();
             
-            if crate::database::set_listener_state(listener_id_int_value, models::ListenerState::Suspended)
+            if crate::database::set_listener_status(listener_id_int_value, models::ListenerStatus::Suspended)
             {
-                println!("[+] Changed the state of the listener");
+                println!("[+] Changed the status of the listener");
             }
             else
             {
-                println!("[!] Failed to change the state of the listener");
+                println!("[!] Failed to change the status of the listener");
             }
 
             let thread_join_handle_index: Option<usize> = vector_thread_channels.iter().position(
@@ -524,7 +524,7 @@ fn list_listeners() -> Vec<GenericListener>
     }
 
     println!("+----+------------+-----------------+-------+");
-    println!("| ID |   STATE    |     ADDRESS     |  PORT |");
+    println!("| ID |   STATUS   |     ADDRESS     |  PORT |");
     println!("+----+------------+-----------------+-------+");
 
     for listener in listeners.iter()
@@ -537,7 +537,7 @@ fn list_listeners() -> Vec<GenericListener>
             println!(
                 "| {0:^2} | {1:^10} | {2:^15} | {3:^5} |",
                 listener.id,
-                listener.state,
+                listener.status,
                 http_listener.address,
                 http_listener.port
             );
