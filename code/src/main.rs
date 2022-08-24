@@ -7,13 +7,13 @@ use std::{io::Write};
 mod settings;
 mod models;
 mod database;
-mod http_server;
+mod servers;
 mod help;
 mod utils;
 
 use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings, ListenerSignal, ImplantTask};
 
-use crate::{http_server::start_listener, models::GenericImplant};
+use crate::{servers::http::start_listener, models::GenericImplant};
 
 lazy_static!
 {
