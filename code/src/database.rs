@@ -1,7 +1,9 @@
 use std::{net::IpAddr, str::FromStr};
+use chrono::format::{DelayedFormat, StrftimeItems};
 use rusqlite::{params, Connection, Result, Statement, ToSql, params_from_iter};
 use std::time::{SystemTime, SystemTimeError, Duration};
 
+use crate::utils;
 use crate::models::{HTTPListener, GenericListener, ListenerState, ListenerProtocol, GenericImplant, self, ImplantTask, ImplantTaskStatus};
 
 pub const DB_NAME: &'static str = "db.sqlite3";
@@ -229,7 +231,12 @@ pub fn add_implant(listener_id: u16, implant_cookie_hash: &str) -> bool
         return flag;
     }
 
-    println!("[+] Last seen: {}", time_elapsed_now.as_ref().unwrap().as_secs());
+    let last_seen_unix_timestamp = time_elapsed_now.as_ref().unwrap().as_secs();
+    let formatted_last_seen: DelayedFormat<StrftimeItems> = utils::format_date_time(
+        last_seen_unix_timestamp,
+        "%Y-%m-%d %H:%M:%S"
+    );
+    println!("[+] Last seen: {}", formatted_last_seen);
 
     let res: Result<usize, rusqlite::Error> = conn.execute(
         "INSERT INTO Implants(CookieHash,LastSeen,ListenerId)

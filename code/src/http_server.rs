@@ -180,9 +180,7 @@ fn check_if_implant(buffer: [u8; 1024]) -> (bool, String)
 
     if is_implant
     {
-        let http_cookie = &CONFIG.listener.http.cookie_name;
-        let regex_string = format!("Cookie: {}=([a-f0-9A-F]*)", http_cookie);
-    
+        let regex_string = &CONFIG.listener.http.auth_cookie_regex;    
         let re = Regex::new(regex_string.as_str()).unwrap();
         let caps: Option<Captures> = re.captures(&buffer);
 
