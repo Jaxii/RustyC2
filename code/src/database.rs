@@ -550,10 +550,13 @@ pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask>
     return tasks;
 }
 
-pub fn get_implant_tasks(implant_id: u16, ignore_completed: bool) -> Vec<ImplantTask>
+pub fn get_implant_tasks(
+    implant_identifier_name: &str,
+    implant_identifier_value: &str,
+    include_statuses: Vec<String>
+) -> Vec<ImplantTask>
 {
     let mut tasks: Vec<ImplantTask> = Vec::new();
-    
     let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
     
     if conn_result.is_err()
@@ -563,20 +566,30 @@ pub fn get_implant_tasks(implant_id: u16, ignore_completed: bool) -> Vec<Implant
     
     let conn: Connection = conn_result.unwrap();
     
-    let mut sql_statement: String = "SELECT Id, ImplantId, Command, DateTime, Status, Output
-        FROM ImplantTasks WHERE ImplantId = ?1".to_string();
+    let mut sql_statement: String = "SELECT ImplantTasks.Id, ImplantId, Command, DateTime, ImplantTasks.Status, Output
+        FROM ImplantTasks
+        JOIN Implants
+        ON ImplantTasks.ImplantId = Implants.Id
+        WHERE Implants.{{ COLUMN_IDENTIFIER }} = ?
+            AND ImplantTasks.Status IN ({{ STATUS_PARAMETERS }})
+        ORDER BY ImplantTasks.DateTime ASC
+        ".to_string().replace("{{ COLUMN_IDENTIFIER }}", implant_identifier_name);
 
-    let mut where_condition: String = String::new();
     let mut vec_params: Vec<String> = Vec::new();
-    vec_params.push(implant_id.to_string());
-
-    if ignore_completed
+    vec_params.push(implant_identifier_value.to_string());
+    
+    let mut status_parameters: String = "?,".repeat(include_statuses.len());
+    
+    if include_statuses.len() > 0
     {
-        where_condition = "AND Status != ?2".to_string();
-        vec_params.push(ImplantTaskStatus::Completed.to_string());
-    }
+        assert!(status_parameters.pop().unwrap() == ",".chars().next().unwrap());
+        sql_statement = sql_statement.replace("{{ STATUS_PARAMETERS }}", status_parameters.as_str());
 
-    sql_statement.push_str(where_condition.as_str());
+        for status in include_statuses
+        {
+            vec_params.push(status);
+        }
+    }
 
     let sql_params: Vec<_> = vec_params.iter().map(|x| x as &dyn ToSql).collect();
     let mut statement: Statement = conn.prepare(&sql_statement).unwrap();

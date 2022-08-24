@@ -13,6 +13,7 @@ mod utils;
 
 use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings, ListenerSignal, ImplantTask};
 
+use crate::models::ImplantTaskStatus;
 use crate::{servers::http::start_listener, models::GenericImplant};
 
 lazy_static!
@@ -632,7 +633,15 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
         }
         else if keyword == "tasks"
         {
-            let implant_tasks = database::get_implant_tasks(implant_id, true);
+            let mut include_statuses: Vec<String> = Vec::new();
+            include_statuses.push(ImplantTaskStatus::Issued.to_string());
+            include_statuses.push(ImplantTaskStatus::Pending.to_string());
+
+            let implant_tasks = database::get_implant_tasks(
+                "Id",
+                implant_id.to_string().as_str(),
+                include_statuses
+            );
             list_tasks(implant_tasks);
         }
         else if keyword == "whoami"

