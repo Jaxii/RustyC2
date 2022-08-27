@@ -15,3 +15,4 @@ rusqlite = { version = "0.27.0", features = ["bundled"] }
 futures = "0.3.21"
 regex = "1.6.0"
 chrono = "0.4.22"
+httparse = "1.7.1"

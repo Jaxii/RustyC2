@@ -1239,6 +1239,7 @@ dependencies = [
  "chrono",
  "config",
  "futures",
+ "httparse",
  "lazy_static",
  "regex",
  "rusqlite",

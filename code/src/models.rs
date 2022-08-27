@@ -66,6 +66,12 @@ pub enum ImplantTaskStatus
     Completed
 }
 
+pub enum ImplantConnectionType
+{
+    Pull,
+    Push
+}
+
 pub trait ManageSettings
 {
     fn show_settings(&self);
