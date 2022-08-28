@@ -3,14 +3,14 @@ use chrono::format::{DelayedFormat, StrftimeItems};
 use rusqlite::{params, Connection, Result, Statement, ToSql, params_from_iter};
 use std::time::{SystemTime, SystemTimeError, Duration};
 
-use crate::utils;
 use crate::models::{HTTPListener, GenericListener, ListenerStatus, ListenerProtocol, GenericImplant, self, ImplantTask, ImplantTaskStatus};
+use crate::misc;
 
 pub const DB_NAME: &'static str = "db.sqlite3";
 
 pub fn prepare_db() -> Result<()>
 {
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
+    let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
     /*
     Using Class Table Inheritance + Shared Primary Key for the database
@@ -19,7 +19,7 @@ pub fn prepare_db() -> Result<()>
     operations should be faster (join-wise).
     */
 
-    conn.execute(
+    db_connection.execute(
         "CREATE TABLE IF NOT EXISTS Listeners (
             Id          INTEGER PRIMARY KEY,
             Protocol    TEXT NOT NULL,
@@ -28,7 +28,7 @@ pub fn prepare_db() -> Result<()>
         []
     )?;
 
-    conn.execute(
+    db_connection.execute(
         "CREATE TABLE IF NOT EXISTS HttpListenerSettings (
             ListenerId  INTEGER PRIMARY KEY,
             IpAddress   VARCHAR(50),
@@ -41,7 +41,7 @@ pub fn prepare_db() -> Result<()>
         []
     )?;
 
-    conn.execute(
+    db_connection.execute(
         "CREATE TABLE IF NOT EXISTS Implants (
             Id              INTEGER PRIMARY KEY,
             CookieHash      VARCHAR(32) UNIQUE,
@@ -54,14 +54,14 @@ pub fn prepare_db() -> Result<()>
         []
     )?;
 
-    conn.execute(
+    db_connection.execute(
         "CREATE TABLE IF NOT EXISTS ImplantTasks (
             Id              INTEGER PRIMARY KEY,
             ImplantId       INTEGER NOT NULL,
             Command         TEXT NOT NULL,
             DateTime        INTEGER NOT NULL,
             Status          VARCHAR(30) NOT NULL,
-            Output          TEXT,
+            Output          BLOB,
             FOREIGN KEY(ImplantId)
                 REFERENCES Implants(Id)
                 ON DELETE CASCADE
@@ -69,7 +69,7 @@ pub fn prepare_db() -> Result<()>
         []
     )?;
 
-    conn.execute(
+    db_connection.execute(
         "UPDATE Listeners
         SET Status = ?1
         WHERE Status = ?2
@@ -85,9 +85,9 @@ pub fn prepare_db() -> Result<()>
 
 pub fn get_listener_address(id: u16) -> String
 {
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
+    let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
-    let query_result: Result<String, _> = conn.query_row(
+    let query_result: Result<String, _> = db_connection.query_row(
         "SELECT IpAddress  
         FROM HttpListenerSettings
         WHERE ListenerId = ?1",
@@ -100,9 +100,9 @@ pub fn get_listener_address(id: u16) -> String
 
 pub fn get_listener_port(id: u16) -> u16
 {
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
+    let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
-    let query_result: Result<u16, _> = conn.query_row(
+    let query_result: Result<u16, _> = db_connection.query_row(
         "SELECT Port
         FROM HttpListenerSettings
         WHERE ListenerId = ?1",
@@ -116,9 +116,9 @@ pub fn get_listener_port(id: u16) -> u16
 pub fn insert_http_listener(listener: HTTPListener) -> bool
 {
     let mut flag: bool = false;
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
+    let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
-    let mut res = conn.execute(
+    let mut res = db_connection.execute(
         "INSERT INTO Listeners(Protocol,Status)
             VALUES(?1, ?2)",
         params![
@@ -129,9 +129,9 @@ pub fn insert_http_listener(listener: HTTPListener) -> bool
 
     if !res.is_err()
     {
-        let row_id: i64 = conn.last_insert_rowid();
+        let row_id: i64 = db_connection.last_insert_rowid();
 
-        res = conn.execute(
+        res = db_connection.execute(
             "INSERT INTO HttpListenerSettings(ListenerId,IpAddress,Port,Host)
                 VALUES(?1, ?2, ?3, ?4)",
             params![
@@ -154,9 +154,9 @@ pub fn insert_http_listener(listener: HTTPListener) -> bool
 pub fn remove_listener(listener_id: u16) -> bool
 {
     let mut flag: bool = false;
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
+    let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
-    let res: Result<usize, rusqlite::Error> = conn.execute(
+    let res: Result<usize, rusqlite::Error> = db_connection.execute(
         "DELETE FROM Listeners
         WHERE Id = ?1",
         params![
@@ -175,14 +175,21 @@ pub fn remove_listener(listener_id: u16) -> bool
     return flag;
 }
 
-pub fn check_if_implant_exists(implant_id: Option<u16>, implant_cookie_hash: Option<&str>) -> bool
+pub fn check_if_implant_exists(
+    implant_id: Option<u16>,
+    implant_cookie_hash: Option<&str>
+) -> Option<u16>
 {
-    let mut flag: bool = false;
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
+    let db_connection = Connection::open(DB_NAME);
+
+    if db_connection.is_err()
+    {
+        return None;
+    }
 
     if implant_id.is_some()
     {
-        let query_result: Result<u16, _> = conn.query_row(
+        let query_result: Result<u16, _> = db_connection.unwrap().query_row(
             "SELECT Id
             FROM Implants
             WHERE Id = ?1",
@@ -190,40 +197,44 @@ pub fn check_if_implant_exists(implant_id: Option<u16>, implant_cookie_hash: Opt
             |row| row.get(0),
         );
 
-        match query_result
+        return match query_result
         {
-            Ok(_) => {
-                flag = true;
+            Ok(v) => {
+                Some(v)
             },
-            Err(_) => {}
+            Err(_) => {
+                None
+            }
         }
     }  
     else if implant_cookie_hash.is_some()
     {
-        let query_result: Result<String, _> = conn.query_row(
-            "SELECT CookieHash
+        let query_result: Result<u16, _> = db_connection.unwrap().query_row(
+            "SELECT Id
             FROM Implants
             WHERE CookieHash = ?1",
             params![implant_cookie_hash.unwrap()],
             |row| row.get(0),
         );
 
-        match query_result
+        return match query_result
         {
-            Ok(_) => {
-                flag = true;
+            Ok(v) => {
+                Some(v)
             },
-            Err(_) => {}
+            Err(_) => {
+                None
+            }
         }
     };
 
-    return flag;
+    return None;
 }
 
 pub fn add_implant(listener_id: u16, implant_cookie_hash: &str) -> bool
 {
     let mut flag: bool = false;
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
+    let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
     let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
     if time_elapsed_now.is_err()
@@ -232,13 +243,13 @@ pub fn add_implant(listener_id: u16, implant_cookie_hash: &str) -> bool
     }
 
     let last_seen_unix_timestamp = time_elapsed_now.as_ref().unwrap().as_secs();
-    let formatted_last_seen: DelayedFormat<StrftimeItems> = utils::format_date_time(
+    let formatted_last_seen: DelayedFormat<StrftimeItems> = misc::utils::format_date_time(
         last_seen_unix_timestamp,
         "%Y-%m-%d %H:%M:%S"
     );
     println!("[+] Last seen: {}", formatted_last_seen);
 
-    let res: Result<usize, rusqlite::Error> = conn.execute(
+    let res: Result<usize, rusqlite::Error> = db_connection.execute(
         "INSERT INTO Implants(CookieHash,LastSeen,ListenerId)
             VALUES(?1, ?2, ?3)",
         params![
@@ -262,9 +273,9 @@ pub fn add_implant(listener_id: u16, implant_cookie_hash: &str) -> bool
 pub fn get_listeners() -> Vec<GenericListener>
 {
     let mut listeners: Vec<GenericListener> = Vec::new();
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
+    let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
-    let mut statement: Statement = conn.prepare(
+    let mut statement: Statement = db_connection.prepare(
         "SELECT Id, Protocol, Status, IpAddress, Port, Host
         FROM Listeners
         INNER JOIN HttpListenerSettings
@@ -312,9 +323,9 @@ pub fn get_listeners() -> Vec<GenericListener>
 pub fn get_implants() -> Vec<GenericImplant>
 {
     let mut implants: Vec<GenericImplant> = Vec::new();
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
+    let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
-    let mut statement: Statement = conn.prepare(
+    let mut statement: Statement = db_connection.prepare(
         "SELECT Id, ListenerId, LastSeen
         FROM Implants
     ").unwrap();
@@ -344,9 +355,9 @@ pub fn get_implants() -> Vec<GenericImplant>
 pub fn remove_implant(implant_id: u16) -> bool
 {
     let mut flag: bool = false;
-    let conn: Connection = Connection::open(DB_NAME).unwrap();
+    let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
-    let res: Result<usize, rusqlite::Error> = conn.execute(
+    let res: Result<usize, rusqlite::Error> = db_connection.execute(
         "DELETE FROM Implants
         WHERE Id = ?1",
         params![
@@ -375,9 +386,9 @@ pub fn set_listener_status(listener_id: u16, listener_status: ListenerStatus) ->
         return false;
     }
 
-    let conn: Connection = conn_result.unwrap();
+    let db_connection: Connection = conn_result.unwrap();
 
-    let res: Result<usize, rusqlite::Error> = conn.execute(
+    let res: Result<usize, rusqlite::Error> = db_connection.execute(
         "UPDATE Listeners
         SET Status = ?1
         WHERE Id = ?2",
@@ -412,7 +423,7 @@ pub fn update_implant_timestamp(implant_cookie_hash: &str) -> bool
         return flag;
     }
 
-    let conn: Connection = conn_result.unwrap();
+    let db_connection: Connection = conn_result.unwrap();
 
     let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
     if time_elapsed_now.is_err()
@@ -420,7 +431,7 @@ pub fn update_implant_timestamp(implant_cookie_hash: &str) -> bool
         return flag;
     }
 
-    let res: Result<usize, rusqlite::Error> = conn.execute(
+    let res: Result<usize, rusqlite::Error> = db_connection.execute(
         "UPDATE Implants
         SET LastSeen = ?1
         WHERE CookieHash = ?2",
@@ -455,7 +466,7 @@ pub fn create_implant_task(implant_id: u16, task_name: &str) -> bool
         return flag;
     }
 
-    let conn: Connection = conn_result.unwrap();
+    let db_connection: Connection = conn_result.unwrap();
 
     let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
     if time_elapsed_now.is_err()
@@ -463,7 +474,7 @@ pub fn create_implant_task(implant_id: u16, task_name: &str) -> bool
         return flag;
     }
 
-    let res: Result<usize, rusqlite::Error> = conn.execute(
+    let res: Result<usize, rusqlite::Error> = db_connection.execute(
         "INSERT INTO ImplantTasks(ImplantId, Command, DateTime, Status)
         VALUES (?1, ?2, ?3, ?4)",
         params![
@@ -500,7 +511,7 @@ pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask>
         return tasks;
     }
 
-    let conn: Connection = conn_result.unwrap();
+    let db_connection: Connection = conn_result.unwrap();
 
     let mut sql_statement: String = "SELECT Id, ImplantId, Command, DateTime, Status, Output
         FROM ImplantTasks ".to_string();
@@ -510,12 +521,12 @@ pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask>
 
     if ignore_completed
     {
-        where_condition = "WHERE Status != :task_status_completed".to_string();
+        where_condition = "WHERE Status != ?".to_string();
         vec_params.push(ImplantTaskStatus::Completed.to_string());
     }
 
     sql_statement.push_str(where_condition.as_str());
-    let mut statement: Statement = conn.prepare(sql_statement.as_str()).unwrap();
+    let mut statement: Statement = db_connection.prepare(sql_statement.as_str()).unwrap();
 
     let sql_params: Vec<_> = vec_params.iter().map(|x| x as &dyn ToSql).collect();
 
@@ -529,10 +540,10 @@ pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask>
         let task_date_time: u64 = row.get(3).unwrap();
         let status: String = row.get(4).unwrap();
         let task_status: ImplantTaskStatus = ImplantTaskStatus::from_str(status.as_str()).unwrap();
-        let task_output: String = match row.get(5)
+        let task_output: Vec<u8> = match row.get(5)
         {
             Ok(v) => v,
-            Err(_) => String::new()
+            Err(_) => vec![]
         };
         
         let implant_task: ImplantTask = ImplantTask {
@@ -564,7 +575,7 @@ pub fn get_implant_tasks(
         return tasks;
     }
     
-    let conn: Connection = conn_result.unwrap();
+    let db_connection: Connection = conn_result.unwrap();
     
     let mut sql_statement: String = "SELECT ImplantTasks.Id, ImplantId, Command, DateTime, ImplantTasks.Status, Output
         FROM ImplantTasks
@@ -572,7 +583,7 @@ pub fn get_implant_tasks(
         ON ImplantTasks.ImplantId = Implants.Id
         WHERE Implants.{{ COLUMN_IDENTIFIER }} = ?
             AND ImplantTasks.Status IN ({{ STATUS_PARAMETERS }})
-        ORDER BY ImplantTasks.DateTime ASC
+        ORDER BY ImplantTasks.DateTime DESC
         ".to_string().replace("{{ COLUMN_IDENTIFIER }}", implant_identifier_name);
 
     let mut vec_params: Vec<String> = Vec::new();
@@ -592,7 +603,7 @@ pub fn get_implant_tasks(
     }
 
     let sql_params: Vec<_> = vec_params.iter().map(|x| x as &dyn ToSql).collect();
-    let mut statement: Statement = conn.prepare(&sql_statement).unwrap();
+    let mut statement: Statement = db_connection.prepare(&sql_statement).unwrap();
     let mut rows = statement.query(params_from_iter(sql_params.iter())).unwrap();
 
     while let Some(row) = rows.next().unwrap()
@@ -603,10 +614,10 @@ pub fn get_implant_tasks(
         let task_date_time: u64 = row.get(3).unwrap();
         let status: String = row.get(4).unwrap();
         let task_status: ImplantTaskStatus = ImplantTaskStatus::from_str(status.as_str()).unwrap();
-        let task_output: String = match row.get(5)
+        let task_output: Vec<u8> = match row.get(5)
         {
             Ok(v) => v,
-            Err(_) => String::new()
+            Err(_) => vec![]
         };
         
         let implant_task: ImplantTask = ImplantTask {
@@ -637,9 +648,9 @@ pub fn update_implant_task_status(
         return false;
     }
 
-    let conn: Connection = conn_result.unwrap();
+    let db_connection: Connection = conn_result.unwrap();
 
-    let res: Result<usize, rusqlite::Error> = conn.execute(
+    let res: Result<usize, rusqlite::Error> = db_connection.execute(
         "UPDATE ImplantTasks
         SET Status = ?1
         WHERE Id = ?2",
@@ -661,5 +672,89 @@ pub fn update_implant_task_status(
         println!("{}", res.unwrap());
     }
     
+    return flag;
+}
+
+fn get_implant_task_last_issued(
+    implant_id: u16
+) -> u64
+{
+    let mut task_id: u64 = 0;
+
+    match Connection::open(DB_NAME)
+    {
+        Ok(db_connection) => {
+            let query_result: Result<u64, _> = db_connection.query_row(
+                "SELECT ImplantTasks.Id
+                FROM ImplantTasks
+                WHERE ImplantId = ?1 AND ImplantTasks.Status = ?2
+                ORDER BY ImplantTasks.DateTime ASC
+                LIMIT 1",
+                params![
+                    implant_id,
+                    ImplantTaskStatus::Pending.to_string()
+                ],
+                |row| row.get(0),
+            );
+    
+            match query_result
+            {
+                Ok(db_task_id) => {
+                    task_id = db_task_id;
+                },
+                Err(_) => {}
+            }
+        },
+        Err(_) => {}
+    }
+
+    return task_id;
+}
+
+pub fn update_implant_task_output(
+    implant_id: u16,
+    task_output_bytes: &[u8]
+) -> bool
+{
+    let mut flag: bool = false;
+    
+    let task_id = get_implant_task_last_issued(implant_id);
+    if task_id == 0
+    {
+        return false;
+    }
+
+    match Connection::open(DB_NAME)
+    {
+        Ok(db_connection) => {
+
+            let res: Result<usize, rusqlite::Error> = db_connection.execute(
+                "UPDATE ImplantTasks
+                SET Output = ?1, Status = ?2
+                WHERE Id = ?3",
+                params![
+                    task_output_bytes,
+                    ImplantTaskStatus::Completed.to_string(),
+                    task_id
+                ]
+            );
+
+            match res
+            {
+                Ok(v) => {
+                    if v == 1
+                    {
+                        flag = true;
+                    }
+                },
+                Err(_) => {}
+            }
+        },
+        Err(_) => 
+        {
+            return false;
+        }
+    }
+
     return flag;
 }

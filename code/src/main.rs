@@ -8,8 +8,7 @@ mod settings;
 mod models;
 mod database;
 mod servers;
-mod help;
-mod utils;
+mod misc;
 
 use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings, ListenerSignal, ImplantTask};
 
@@ -79,7 +78,7 @@ async fn main()
             }
             else
             {
-                help::print_help_main();
+                misc::help::print_help_main();
             }
         }
         else if keyword == "listeners" || keyword == "listener"
@@ -175,7 +174,7 @@ fn process_input_listeners(
                 continue;
             }
 
-            help::print_help_listeners();
+            misc::help::print_help_listeners();
         }
         else if keyword == "list"
         {
@@ -345,7 +344,7 @@ fn process_input_implants(tag: String) -> &'static str
         }
         else if keyword == "help"
         {
-            help::print_help_implants();
+            misc::help::print_help_implants();
         }
         else if keyword == "interact"
         {
@@ -366,7 +365,7 @@ fn process_input_implants(tag: String) -> &'static str
             
             let implant_id: u16 = first_argument_int.unwrap();
 
-            if ! database::check_if_implant_exists(Some(implant_id), None)
+            if database::check_if_implant_exists(Some(implant_id), None).is_none()
             {
                 println!("[!] There's no implant indentified by this ID");
                 continue;
@@ -475,7 +474,7 @@ fn process_input_listeners_create(tag: String) -> &'static str
             }
             "help" =>
             {
-                help::print_help_listeners_create();
+                misc::help::print_help_listeners_create();
             }
             "options" =>
             {
@@ -629,13 +628,14 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
         }
         else if keyword == "help"
         {
-            help::print_help_implants_interaction();
+            misc::help::print_help_implants_interaction();
         }
         else if keyword == "tasks"
         {
             let mut include_statuses: Vec<String> = Vec::new();
             include_statuses.push(ImplantTaskStatus::Issued.to_string());
             include_statuses.push(ImplantTaskStatus::Pending.to_string());
+            include_statuses.push(ImplantTaskStatus::Completed.to_string());
 
             let implant_tasks = database::get_implant_tasks(
                 "Id",
@@ -693,7 +693,7 @@ fn list_tasks(tasks: Vec<ImplantTask>) {
 
     for task in tasks
     {
-        let formatted_date_time: DelayedFormat<StrftimeItems> = utils::format_date_time(task.datetime, "%Y-%m-%d %H:%M:%S");
+        let formatted_date_time: DelayedFormat<StrftimeItems> = misc::utils::format_date_time(task.datetime, "%Y-%m-%d %H:%M:%S");
 
         println!(
             "| {0:^4} | {1:^20}+0 | {2:^15} |",

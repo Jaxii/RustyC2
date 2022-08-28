@@ -35,7 +35,7 @@ pub struct ImplantTask
     pub command: String,
     pub datetime: u64,
     pub status: ImplantTaskStatus,
-    pub output: String
+    pub output: Vec<u8>
 }
 
 pub enum ListenerProtocol
