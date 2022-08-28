@@ -71,7 +71,7 @@ pub struct HttpResponsesSettings
 {
     pub status_code: u16,
     pub status_code_reason: String,
-    pub http_version: String,
+    pub http_version: u8,
     pub headers: Vec<HttpHeader>
 }
 
@@ -80,8 +80,10 @@ pub struct HttpResponsesSettingsGroup
 {
     pub default_success: HttpResponsesSettings,
     pub default_error: HttpResponsesSettings,
-    pub implant_success: HttpResponsesSettings,
-    pub implant_error: HttpResponsesSettings
+    pub implant_pull_success: HttpResponsesSettings,
+    pub implant_pull_failure: HttpResponsesSettings,
+    pub implant_push_success: HttpResponsesSettings,
+    pub implant_push_failure: HttpResponsesSettings
 }
 
 #[derive(Debug, Deserialize, Clone)]

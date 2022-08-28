@@ -454,7 +454,6 @@ fn process_input_listeners_create(tag: String) -> &'static str
         }
 
         let keyword: &&str = split.first().unwrap();
-        // println!("[#] Keyword: '{0}'", keyword);
 
         match *keyword
         {

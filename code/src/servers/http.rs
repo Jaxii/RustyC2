@@ -11,7 +11,7 @@ use std::net::{TcpListener, TcpStream};
 
 use crate::models::{ListenerSignal, ImplantTaskStatus, ListenerStatus, ImplantConnectionType, ImplantTask};
 use crate::settings;
-use crate::misc;
+use crate::misc::utils;
 use crate::database;
 
 lazy_static!
@@ -249,23 +249,43 @@ fn prepare_http_response(
 
     if http_method == "GET" && http_path == "/"
     {
-        http_response.code = Some(200);
-        http_response.version = Some(1);
-        http_response.reason = Some("OK");
+        http_response.code = Some(CONFIG.listener.http.responses.default_success.status_code);
+        http_response.version = Some(CONFIG.listener.http.responses.default_success.http_version);
+        http_response.reason = Some(&CONFIG.listener.http.responses.default_success.status_code_reason);
+
+        let mut new_http_headers: Vec<httparse::Header> = vec![
+            Header {name: "", value: &[]};
+            CONFIG.listener.http.responses.default_success.headers.len()
+        ];
+        utils::config_http_headers_to_httparse_headers(
+            new_http_headers.as_mut(),
+            &CONFIG.listener.http.responses.default_success.headers
+        );
+        http_response.headers = new_http_headers.as_mut();
 
         write_http_response_bytes(
             http_response,
-            misc::utils::read_file_bytes(&default_page_path)
+            utils::read_file_bytes(&default_page_path)
         )
     }
     else {
-        http_response.code = Some(404);
-        http_response.version = Some(1);
-        http_response.reason = Some("Not Found");
+        http_response.code = Some(CONFIG.listener.http.responses.default_error.status_code);
+        http_response.version = Some(CONFIG.listener.http.responses.default_error.http_version);
+        http_response.reason = Some(&CONFIG.listener.http.responses.default_error.status_code_reason);
+
+        let mut new_http_headers: Vec<httparse::Header> = vec![
+            Header {name: "", value: &[]};
+            CONFIG.listener.http.responses.default_error.headers.len()
+        ];
+        utils::config_http_headers_to_httparse_headers(
+            new_http_headers.as_mut(),
+            &CONFIG.listener.http.responses.default_error.headers
+        );
+        http_response.headers = new_http_headers.as_mut();
 
         write_http_response_bytes(
             http_response,
-            misc::utils::read_file_bytes(&error_page_path)
+            utils::read_file_bytes(&error_page_path)
         )
     }
 }
@@ -298,9 +318,23 @@ fn prepare_http_response_implant(
                 {
                     println!("[+] Implant successfully added to the database");
                     
-                    http_response.code = Some(200);
-                    http_response.version = Some(1);
-                    http_response.reason = Some("OK");
+                    http_response.code = Some(CONFIG.listener.http.responses.implant_pull_success.status_code);
+                    http_response.version = Some(CONFIG.listener.http.responses.implant_pull_success.http_version);
+                    http_response.reason = Some(&CONFIG.listener.http.responses.implant_pull_success.status_code_reason);
+
+                    let mut new_http_headers: Vec<httparse::Header> = vec![
+                        Header {name: "", value: &[]};
+                        CONFIG.listener.http.responses.implant_pull_success.headers.len()
+                    ];
+                    utils::config_http_headers_to_httparse_headers(
+                        new_http_headers.as_mut(),
+                        &CONFIG.listener.http.responses.implant_pull_success.headers
+                    );
+                    http_response.headers = new_http_headers.as_mut();
+                    return write_http_response_bytes(
+                        http_response,
+                        http_response_body
+                    );
                 }
                 else
                 {
@@ -322,9 +356,24 @@ fn prepare_http_response_implant(
 
                 if implant_tasks.len() == 0
                 {
-                    http_response.code = Some(404);
-                    http_response.version = Some(1);
-                    http_response.reason = Some("Not Found");
+                    http_response.code = Some(CONFIG.listener.http.responses.implant_pull_failure.status_code);
+                    http_response.version = Some(CONFIG.listener.http.responses.implant_pull_failure.http_version);
+                    http_response.reason = Some(&CONFIG.listener.http.responses.implant_pull_failure.status_code_reason);
+                
+                    let mut new_http_headers: Vec<httparse::Header> = vec![
+                        Header {name: "", value: &[]};
+                        CONFIG.listener.http.responses.implant_pull_failure.headers.len()
+                    ];
+                    utils::config_http_headers_to_httparse_headers(
+                        new_http_headers.as_mut(),
+                        &CONFIG.listener.http.responses.implant_pull_failure.headers
+                    );
+                    http_response.headers = new_http_headers.as_mut();
+
+                    return write_http_response_bytes(
+                        http_response,
+                        http_response_body
+                    );
                 }
                 else
                 {
@@ -341,20 +390,46 @@ fn prepare_http_response_implant(
                             // since we failed to update the status of the task, we
                             // can't send it to the implant
                             // so just assume that there are no tasks
-                            http_response.code = Some(404);
-                            http_response.version = Some(1);
-                            http_response.reason = Some("Not Found");
+                            http_response.code = Some(CONFIG.listener.http.responses.implant_pull_failure.status_code);
+                            http_response.version = Some(CONFIG.listener.http.responses.implant_pull_failure.http_version);
+                            http_response.reason = Some(&CONFIG.listener.http.responses.implant_pull_failure.status_code_reason);
 
-                            break;
+                            let mut new_http_headers: Vec<httparse::Header> = vec![
+                                Header {name: "", value: &[]};
+                                CONFIG.listener.http.responses.implant_pull_failure.headers.len()
+                            ];
+                            utils::config_http_headers_to_httparse_headers(
+                                new_http_headers.as_mut(),
+                                &CONFIG.listener.http.responses.implant_pull_failure.headers
+                            );
+                            http_response.headers = new_http_headers.as_mut();
+        
+                            return write_http_response_bytes(
+                                http_response,
+                                http_response_body
+                            );
                         }
                         else
                         {
-                            http_response.code = Some(200);
-                            http_response.version = Some(1);
-                            http_response.reason = Some("OK");
+                            http_response.code = Some(CONFIG.listener.http.responses.implant_pull_success.status_code);
+                            http_response.version = Some(CONFIG.listener.http.responses.implant_pull_success.http_version);
+                            http_response.reason = Some(&CONFIG.listener.http.responses.implant_pull_success.status_code_reason);
                             http_response_body = prepare_http_response_task_command(task.command);
 
-                            break;
+                            let mut new_http_headers: Vec<httparse::Header> = vec![
+                                Header {name: "", value: &[]};
+                                CONFIG.listener.http.responses.implant_pull_success.headers.len()
+                            ];
+                            utils::config_http_headers_to_httparse_headers(
+                                new_http_headers.as_mut(),
+                                &CONFIG.listener.http.responses.implant_pull_success.headers
+                            );
+                            http_response.headers = new_http_headers.as_mut();
+        
+                            return write_http_response_bytes(
+                                http_response,
+                                http_response_body
+                            );
                         }
                     }
                 }
@@ -375,11 +450,24 @@ fn prepare_http_response_implant(
 
             if implant_id.is_none()
             {
-                http_response.code = Some(404);
-                http_response.version = Some(1);
-                http_response.reason = Some("Not Found");
+                http_response.code = Some(CONFIG.listener.http.responses.implant_push_failure.status_code);
+                http_response.version = Some(CONFIG.listener.http.responses.implant_push_failure.http_version);
+                http_response.reason = Some(&CONFIG.listener.http.responses.implant_push_failure.status_code_reason);
+                
+                let mut new_http_headers: Vec<httparse::Header> = vec![
+                    Header {name: "", value: &[]};
+                    CONFIG.listener.http.responses.implant_push_failure.headers.len()
+                ];
+                utils::config_http_headers_to_httparse_headers(
+                    new_http_headers.as_mut(),
+                    &CONFIG.listener.http.responses.implant_push_failure.headers
+                );
+                http_response.headers = new_http_headers.as_mut();
 
-                return write_http_response_bytes(http_response, http_response_body);
+                return write_http_response_bytes(
+                    http_response,
+                    http_response_body
+                );
             }
 
             if http_request_body_bytes.len() > 0
@@ -389,15 +477,45 @@ fn prepare_http_response_implant(
                     http_request_body_bytes
                 )
                 {
-                    http_response.code = Some(200);
-                    http_response.version = Some(1);
-                    http_response.reason = Some("OK");
+                    http_response.code = Some(CONFIG.listener.http.responses.implant_push_success.status_code);
+                    http_response.version = Some(CONFIG.listener.http.responses.implant_push_success.http_version);
+                    http_response.reason = Some(&CONFIG.listener.http.responses.implant_push_success.status_code_reason);
+
+                    let mut new_http_headers: Vec<httparse::Header> = vec![
+                        Header {name: "", value: &[]};
+                        CONFIG.listener.http.responses.implant_push_success.headers.len()
+                    ];
+                    utils::config_http_headers_to_httparse_headers(
+                        new_http_headers.as_mut(),
+                        &CONFIG.listener.http.responses.implant_push_success.headers
+                    );
+                    http_response.headers = new_http_headers.as_mut();
+    
+                    return write_http_response_bytes(
+                        http_response,
+                        http_response_body
+                    );
                 }
                 else
                 {
-                    http_response.code = Some(404);
-                    http_response.version = Some(1);
-                    http_response.reason = Some("Not Found");
+                    http_response.code = Some(CONFIG.listener.http.responses.implant_push_failure.status_code);
+                    http_response.version = Some(CONFIG.listener.http.responses.implant_push_failure.http_version);
+                    http_response.reason = Some(&CONFIG.listener.http.responses.implant_push_failure.status_code_reason);    
+                
+                    let mut new_http_headers: Vec<httparse::Header> = vec![
+                        Header {name: "", value: &[]};
+                        CONFIG.listener.http.responses.implant_push_failure.headers.len()
+                    ];
+                    utils::config_http_headers_to_httparse_headers(
+                        new_http_headers.as_mut(),
+                        &CONFIG.listener.http.responses.implant_push_failure.headers
+                    );
+                    http_response.headers = new_http_headers.as_mut();
+    
+                    return write_http_response_bytes(
+                        http_response,
+                        http_response_body
+                    );    
                 }
             }
 
