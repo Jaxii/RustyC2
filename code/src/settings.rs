@@ -38,7 +38,8 @@ pub struct HttpListenerSettings
     pub push_endpoint: String,
     pub default_page_path: String,
     pub default_error_page_path: String,
-    pub auth_cookie_regex: String
+    pub auth_cookie_regex: String,
+    pub responses: HttpResponsesSettings
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -63,6 +64,31 @@ pub struct ImplantTaskCommand
     pub description: String,
     pub code: String,
     pub alt_name: String
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct HttpResponsesSettings
+{
+    pub status_code: u16,
+    pub status_code_reason: String,
+    pub http_version: String,
+    pub headers: Vec<HttpHeader>
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct HttpResponsesSettingsGroup
+{
+    pub default_success: HttpResponsesSettings,
+    pub default_error: HttpResponsesSettings,
+    pub implant_success: HttpResponsesSettings,
+    pub implant_error: HttpResponsesSettings
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct HttpHeader
+{
+    pub name: String,
+    pub value: String
 }
 
 /*
