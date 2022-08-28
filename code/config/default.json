@@ -21,8 +21,8 @@
                     "http_version": "1.1",
                     "headers": [
                         {
-                            "Name": "Server",
-                            "Value": "Apache"
+                            "name": "Server",
+                            "value": "Apache"
                         }
                     ]
                 },
@@ -32,8 +32,8 @@
                     "http_version": "1.1",
                     "headers": [
                         {
-                            "Name": "Server",
-                            "Value": "Apache"
+                            "name": "Server",
+                            "value": "Apache"
                         }
                     ]
                 },
@@ -43,8 +43,8 @@
                     "http_version": "1.1",
                     "headers": [
                         {
-                            "Name": "Server",
-                            "Value": "Apache"
+                            "name": "Server",
+                            "value": "Apache"
                         }
                     ]
                 },
@@ -54,8 +54,8 @@
                     "http_version": "1.1",
                     "headers": [
                         {
-                            "Name": "Server",
-                            "Value": "Apache"
+                            "name": "Server",
+                            "value": "Apache"
                         }
                     ]
                 }

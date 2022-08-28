@@ -39,7 +39,7 @@ pub struct HttpListenerSettings
     pub default_page_path: String,
     pub default_error_page_path: String,
     pub auth_cookie_regex: String,
-    pub responses: HttpResponsesSettings
+    pub responses: HttpResponsesSettingsGroup
 }
 
 #[derive(Debug, Deserialize, Clone)]
