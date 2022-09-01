@@ -9,6 +9,7 @@ mod models;
 mod database;
 mod servers;
 mod misc;
+mod implants;
 
 use models::{HTTPListener, GenericListener, ListenerProtocol, ManageSettings, ListenerSignal, ImplantTask};
 
@@ -341,6 +342,52 @@ fn process_input_implants(tag: String) -> &'static str
         else if keyword == "exit"
         {
             return "exit"
+        }
+        else if keyword == "generate"
+        {
+            let listener_id_option: Option<&&str> = split.get(1);
+            if listener_id_option.is_none()
+            {
+                println!("[+] Usage:\n\tgenerate <listener_id>");
+                continue;
+            }
+
+            match listener_id_option.unwrap().parse::<u16>()
+            {
+                Ok(listener_id) => {
+                    match database::get_listener_protocol(listener_id)
+                    {
+                        Some(listener_protocol) => 
+                        {
+                            match listener_protocol
+                            {
+                                ListenerProtocol::HTTP => {
+                                    match database::get_http_listener(listener_id)
+                                    {
+                                        Some(http_listener) => {
+                                            implants::generate::generate_http_implant(http_listener);
+                                        },
+                                        None => {
+                                            println!("[!] Couldn't find the http listener specified")
+                                        }
+                                    }
+                                },
+                                _ => {}
+                            }
+                        },
+                        None =>
+                        {
+                            println!("[!] Couldn't find the type of the listener");
+                            continue;   
+                        }
+                    }
+                },
+                Err(_) => {
+                    println!("[!] Couldn't convert the parameter to an integer");
+                    continue;
+                }
+            }
+                
         }
         else if keyword == "help"
         {

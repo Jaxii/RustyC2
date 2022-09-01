@@ -4,6 +4,9 @@ use std::fmt;
 use std::num::ParseIntError;
 use std::str::{FromStr, Chars};
 
+use rusqlite::Row;
+use rusqlite::types::{FromSql, FromSqlResult, ValueRef, FromSqlError};
+
 use crate::database;
 pub struct GenericListener
 {
@@ -13,6 +16,7 @@ pub struct GenericListener
     pub data: Box<dyn Any>
 }
 
+#[derive(Debug, PartialEq)]
 pub struct HTTPListener
 {
     pub address: IpAddr,
@@ -140,6 +144,30 @@ impl FromStr for ListenerProtocol
     }
 }
 
+impl FromSql for ListenerProtocol
+{
+    fn column_result(
+        value: ValueRef<'_>
+    ) -> FromSqlResult<Self>
+    {
+        match value.as_str()
+        {
+            Ok(value_str) => {
+                match value_str
+                {
+                    "TCP" => Ok(ListenerProtocol::TCP),
+                    "UDP" => Ok(ListenerProtocol::UDP),
+                    "HTTP" => Ok(ListenerProtocol::HTTP),
+                    "ICMP" => Ok(ListenerProtocol::ICMP),
+                    "DNS" => Ok(ListenerProtocol::DNS),
+                    _ => Err(FromSqlError::InvalidType)
+                }
+            },
+            Err(_) => Err(FromSqlError::InvalidType)
+        }
+    }
+}
+
 impl FromStr for ImplantTaskStatus
 {
     type Err = ();
@@ -254,5 +282,32 @@ impl ManageSettings for HTTPListener
         }
 
         return flag;
+    }
+}
+
+impl TryFrom<&Row<'_>> for HTTPListener
+{
+    type Error = rusqlite::Error;
+
+    fn try_from(sql_row: &Row<'_>) -> Result<Self, Self::Error> {
+        match (sql_row.get(0), sql_row.get(1), sql_row.get(2))
+        {
+            (Ok::<String, _>(ip_address_str), Ok::<u16, _>(listener_port), Ok::<String, _>(http_host)) => {
+
+                match ip_address_str.parse::<IpAddr>()
+                {
+                    Ok(ip_address) => {
+                        Ok(HTTPListener {
+                            address: ip_address,
+                            port: listener_port,
+                            host: http_host,
+                        })
+                    },
+                    Err(_) => Err(rusqlite::Error::InvalidQuery)
+                }
+            },
+            (_, _, _) => Err(rusqlite::Error::InvalidQuery),
+        }
+
     }
 }

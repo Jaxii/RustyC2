@@ -23,6 +23,7 @@ pub fn print_help_implants()
     let help_items = [
         ("back",        "Return to the main menu"),
         ("exit",        "Exit from the framework"),
+        ("generate",    "Generate implant code"),
         ("help",        "Show this help menu"),
         ("list",        "List all the implants"),
         ("interact",    "Interact with a specific implant"),

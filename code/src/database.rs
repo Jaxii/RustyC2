@@ -1,6 +1,6 @@
 use std::{net::IpAddr, str::FromStr};
 use chrono::format::{DelayedFormat, StrftimeItems};
-use rusqlite::{params, Connection, Result, Statement, ToSql, params_from_iter};
+use rusqlite::{params, Connection, Result, Statement, ToSql, params_from_iter, Row};
 use std::time::{SystemTime, SystemTimeError, Duration};
 
 use crate::models::{HTTPListener, GenericListener, ListenerStatus, ListenerProtocol, GenericImplant, self, ImplantTask, ImplantTaskStatus};
@@ -757,4 +757,55 @@ pub fn update_implant_task_output(
     }
 
     return flag;
+}
+
+pub fn get_listener_protocol(
+    listener_id: u16
+) -> Option<ListenerProtocol>
+{
+    return match Connection::open(DB_NAME)
+    {
+        Ok(db_connection) => {
+            match db_connection.query_row::<ListenerProtocol, _, _>(
+                "SELECT Protocol
+                FROM Listeners
+                WHERE Id = ?1",
+                params![listener_id],
+                |row| row.get(0),
+            )
+            {
+                Ok(listener_protocol) => {
+                    Some(listener_protocol)
+                },
+                Err(_) => None
+            }
+        },
+        Err(_) => None
+    };
+}
+
+pub fn get_http_listener(
+    listener_id: u16
+) -> Option<HTTPListener>
+{
+    return match Connection::open(DB_NAME)
+    {
+        Ok(db_connection) => {
+            match db_connection.query_row::<HTTPListener, _, _>(
+                "SELECT IpAddress, Port, Host
+                FROM HttpListenerSettings
+                WHERE HttpListenerSettings.ListenerId = ?1",
+                params![
+                    listener_id
+                ],
+                |row: &Row| HTTPListener::try_from(row))
+                {
+                    Ok(http_listener) => {
+                        Some(http_listener)
+                    },
+                    Err(_) => None
+                }
+        },
+        Err(_) => None
+    };
 }
