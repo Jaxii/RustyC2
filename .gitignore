@@ -10,6 +10,12 @@ target/
 **/*.rs.bk
 *.sqlite*
 
+# Visual Studio files
+.vs/
+
 # Ignore static assets
 static/
 static/*
+
+# Ignore implant templates
+templates/
