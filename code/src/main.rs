@@ -52,34 +52,15 @@ async fn main()
         }
         else if keyword == "help"
         {
-            if split.get(1).is_some()
+            match split.get(1)
             {
-                let help_argument: &str = split.get(1).unwrap().deref();
-
-                if help_argument == "back"
+                Some(help_argument) =>
                 {
-                    println!("[+] Usage:\n\tback");
-                    println!("[+] Description:\n\tIt allows you to go back to the previous menu");
+                    misc::help::print_help_usage(*help_argument);
+                },
+                None => {
+                    misc::help::print_help_main();
                 }
-                else if help_argument == "exit"
-                {
-                    println!("[+] Usage:\n\texit");
-                    println!("[+] Description:\n\tUse it to exit from the program");
-                }
-                else if help_argument == "listeners" || help_argument == "listener"
-                {
-                    println!("[+] Usage:\n\tlisteners");
-                    println!("[+] Description:\n\tAccess the listeners menu");
-                }
-                else if help_argument == "implants" || help_argument == "implant"
-                {
-                    println!("[+] Usage:\n\timplants");
-                    println!("[+] Description:\n\tAccess the implants menu");
-                }
-            }
-            else
-            {
-                misc::help::print_help_main();
             }
         }
         else if keyword == "listeners" || keyword == "listener"
@@ -140,42 +121,19 @@ fn process_input_listeners(
         }
         else if keyword == "help"
         {
-            if split.get(1).is_some()
+            match split.get(1)
             {
-                let help_argument: &&str = split.get(1).unwrap();
-
-                if *help_argument == "back"
+                Some(help_argument) =>
                 {
-                    println!("[+] Usage:\n\tback");
-                    println!("[+] Description:\n\tIt allows you to go back to the previous menu");
-                }
-                else if *help_argument == "exit"
+                    misc::help::print_help_listeners_usage(*help_argument);
+                },
+                None =>
                 {
-                    println!("[+] Usage:\n\texit");
-                    println!("[+] Description:\n\tUse it to exit from the program");
+                    misc::help::print_help_listeners();
                 }
-                else if *help_argument == "remove"
-                {
-                    println!("[+] Usage:\n\tremove <id>");
-                    println!("\tremove <id1>,<id2>");
-                    println!("\tremove <id1>,<id2>,<id3>,...");
-                    println!("[+] Description:\n\tUse it to remove a stopped listener from the database");
-                }
-                else if *help_argument == "list"
-                {
-                    println!("[+] Usage:\n\tlist");
-                    println!("[+] Description:\n\tShow all the listeners in the database");
-                }
-                else if *help_argument == "create"
-                {
-                    println!("[+] Usage:\n\tcreate");
-                    println!("[+] Description:\n\tCreate a new listener");
-                }
-
-                continue;
-            }
-
-            misc::help::print_help_listeners();
+            };
+            
+            continue;
         }
         else if keyword == "list"
         {
@@ -690,7 +648,7 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
             );
             list_tasks(implant_tasks);
         }
-        else if keyword == "whoami"
+        else if keyword == "whoami" || keyword == "pwd"
         {
 
             let mut new_task_command = keyword;

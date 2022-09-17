@@ -28,6 +28,7 @@ pub fn print_help_implants()
         ("list",        "List all the implants"),
         ("interact",    "Interact with a specific implant"),
         ("kill",        "Kill implant"),
+        ("remove",      "Remove an implant"),
         ("sleep",       "Change callback delay"),
     ];
 
@@ -95,6 +96,7 @@ pub fn print_help_implants_interaction()
         ("ls",          "Show files/directories in the current path"),
         ("addresses",   "Show the IP address of the host"),
         ("pwd",         "Show the current path"),
+        ("tasks",       "Manage tasks"),
         ("whoami",      "Print the current username"),
     ];
 
@@ -107,4 +109,102 @@ pub fn print_help_implants_interaction()
     }
 
     println!();
+}
+
+pub fn print_help_usage(command: &str)
+{
+    match command
+    {
+        "back" =>
+        {
+            println!(concat!(
+                "[+] Usage:\n",
+                "\tback\n",
+                "[+] Description:\n\t",
+                "It allows you to go back to the previous menu"
+            ));
+        },
+        "exit" => 
+        {
+            println!(concat!(
+                "[+] Usage:\n",
+                "\texit\n",
+                "[+] Description:\n",
+                "\tUse it to exit from the program"
+            ));
+        },
+        "listeners"|"listener" =>
+        {
+            println!(concat!(
+                "[+] Usage:\n",
+                "\tlisteners\n",
+                "[+] Description:\n",
+                "\tAccess the listeners menu"
+            ));
+        }
+        "implants" | "implant" =>
+        {
+            println!(concat!(
+                "[+] Usage:\n",
+                "\timplants\n",
+                "[+] Description:\n",
+                "\tAccess the implants menu"
+            ));
+        },
+        _ => {}
+    };
+}
+
+pub fn print_help_listeners_usage(command: &str)
+{
+    match command
+    {
+        "back" =>
+        {
+            println!(concat!(
+                "[+] Usage:\n",
+                "\tback\n",
+                "[+] Description:\n\t",
+                "It allows you to go back to the previous menu"
+            ));
+        },
+        "exit" => 
+        {
+            println!(concat!(
+                "[+] Usage:\n",
+                "\texit\n",
+                "[+] Description:\n",
+                "\tUse it to exit from the program"
+            ));
+        },
+        "remove" =>
+        {
+            println!(concat!(
+                "[+] Usage:\n",
+                "\tremove <id>\n",
+                "\tremove <id1>,<id2>,...\n",
+                "[+] Description:\n",
+                "\tUse it to remove a stopped listener from the database"
+            ));
+        }
+        "list" =>
+        {
+            println!(concat!(
+                "[+] Usage:\n",
+                "\tlist\n",
+                "[+] Description:\n",
+                "\tShow all the listeners in the database"
+            ));
+        },
+        "create" =>
+        {
+            println!(concat!(
+                "[+] Usage:\n",
+                "\tcreate\n",
+                "[+] Description:\n",
+                "\tAccess the menu for creating a new listener"
+            ));
+        }
+        _ => {}
+    };
 }

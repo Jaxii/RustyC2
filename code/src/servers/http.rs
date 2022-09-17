@@ -59,8 +59,10 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
         None => {}
     }
 
-    let re = Regex::new(r"\r\n").unwrap();
-    let num_http_headers = re.find_iter(&http_request_bytes[0..double_crlf_offset]).count();
+    assert!(double_crlf_offset < http_request_bytes.len());
+
+    let re: Regex = Regex::new(r"\r\n").unwrap();
+    let num_http_headers: usize = re.find_iter(&http_request_bytes[0..double_crlf_offset]).count();
     let mut http_headers: Vec<httparse::Header> = vec![
         Header {name: "", value: &[]};
         num_http_headers
