@@ -158,18 +158,23 @@ pub fn remove_listener(listener_id: u16) -> bool
 
     let res: Result<usize, rusqlite::Error> = db_connection.execute(
         "DELETE FROM Listeners
-        WHERE Id = ?1",
+        WHERE Id = ?1 AND Status != ?2",
         params![
-            listener_id
+            listener_id,
+            ListenerStatus::Active.to_string()
         ]
     );
 
-    if !res.is_err()
+    match res
     {
-        if res.unwrap() != 0
+        Ok(num_rows_changed) =>
         {
-            flag = true;
-        }   
+            if num_rows_changed > 0
+            {
+                flag = true
+            }
+        },
+        Err(_) => {}
     }
 
     return flag;

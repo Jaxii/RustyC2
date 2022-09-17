@@ -160,7 +160,7 @@ fn process_input_listeners(
             let listener_id: u16 = first_argument_int.unwrap();
             if database::remove_listener(listener_id)
             {
-                println!("[+] Successfully remove the listener {0}", listener_id);
+                println!("[+] Successfully removed the listener {0}", listener_id);
             }
             else
             {
