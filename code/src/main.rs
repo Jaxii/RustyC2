@@ -44,7 +44,7 @@ async fn main()
             continue;
         }
 
-        let keyword: &str = split.first().unwrap().deref();
+        let keyword: &str = &split.first().unwrap().deref().to_lowercase();
 
         if keyword == "exit"
         {
@@ -56,7 +56,7 @@ async fn main()
             {
                 Some(help_argument) =>
                 {
-                    misc::help::print_help_usage(*help_argument);
+                    misc::help::print_help_usage(&*help_argument.to_lowercase());
                 },
                 None => {
                     misc::help::print_help_main();
@@ -100,7 +100,7 @@ fn process_input_listeners(
             continue;
         }
 
-        let keyword: &str = split.first().unwrap().deref();
+        let keyword: &str = &split.first().unwrap().deref().to_lowercase();
 
         if keyword == "back"
         {
@@ -125,7 +125,7 @@ fn process_input_listeners(
             {
                 Some(help_argument) =>
                 {
-                    misc::help::print_help_listeners_usage(*help_argument);
+                    misc::help::print_help_listeners_usage(&*help_argument.to_lowercase());
                 },
                 None =>
                 {
@@ -291,7 +291,7 @@ fn process_input_implants(tag: String) -> &'static str
             continue;
         }
 
-        let keyword: &str = &split.first().unwrap();
+        let keyword: &str = &split.first().unwrap().to_lowercase();
 
         if keyword == "back"
         {
@@ -620,7 +620,7 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
             continue;
         }
 
-        let keyword: &str = split.first().unwrap().deref();
+        let keyword: &str = &split.first().unwrap().deref().to_lowercase();
 
         if keyword == "back"
         {
