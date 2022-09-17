@@ -1,0 +1,3 @@
+[submodule "code/implants"]
+	path = code/implants
+	url = git@github.com:rbctee/RustyC2Implants.git
