@@ -636,17 +636,101 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
         }
         else if keyword == "tasks"
         {
-            let mut include_statuses: Vec<String> = Vec::new();
-            include_statuses.push(ImplantTaskStatus::Issued.to_string());
-            include_statuses.push(ImplantTaskStatus::Pending.to_string());
-            include_statuses.push(ImplantTaskStatus::Completed.to_string());
 
-            let implant_tasks = database::get_implant_tasks(
-                "Id",
-                implant_id.to_string().as_str(),
-                include_statuses
-            );
-            list_tasks(implant_tasks);
+            if split.get(1).is_none()
+            {
+                list_tasks(database::get_implant_tasks(
+                    "Id",
+                    implant_id.to_string().as_str(),
+                    vec![
+                        ImplantTaskStatus::Issued.to_string(),
+                        ImplantTaskStatus::Pending.to_string(),
+                        ImplantTaskStatus::Completed.to_string()
+                    ]
+                ));
+
+                continue;
+            }
+
+            match *(split.get(1).unwrap())
+            {
+                "get" => 
+                {
+                    match split.get(2)
+                    {
+                        Some(task_id) => {
+                            match task_id.parse::<u64>()
+                            {
+                                Ok(task_id_int) => 
+                                {
+                                    match database::get_task(task_id_int)
+                                    {
+                                        Some(implant_task) =>
+                                        {
+                                            if implant_task.output.is_empty()
+                                            {
+                                                println!("[+] There's no output yet");    
+                                            }
+                                            else
+                                            {
+                                                match String::from_utf8(implant_task.output)
+                                                {
+                                                    Ok(task_output) =>
+                                                    {
+                                                        println!(
+                                                            "[+] Output of the task {}:\n{}",
+                                                            implant_task.id,
+                                                            task_output
+                                                        );
+                                                    },
+                                                    Err(_) =>
+                                                    {
+                                                        println!("[!] Couldn't print the output of the command to screen");
+                                                    }
+                                                };
+                                            }
+                                        },
+                                        None =>
+                                        {
+                                            println!("[!] Failed to retrieve the task");
+                                        }
+                                    }
+                                },
+                                Err(_) => {
+                                    println!("[!] Failed to parse the ID of the task to retrieve");
+                                }
+                            }
+                        },
+                        None => {
+                            println!(concat!(
+                                "[+] Usage:\n",
+                                "\ttasks get <id>\n",
+                                "[+] Description:\n",
+                                "\tRetrieve the output of a specific task"
+                            ));
+                        }
+                    }
+                },
+                "list" =>
+                {
+                    list_tasks(database::get_implant_tasks(
+                        "Id",
+                        implant_id.to_string().as_str(),
+                        vec![
+                            ImplantTaskStatus::Issued.to_string(),
+                            ImplantTaskStatus::Pending.to_string(),
+                            ImplantTaskStatus::Completed.to_string()
+                        ]
+                    ));
+                },
+                "remove" => {
+
+                },
+                _ => {}
+            };
+
+            continue;
+
         }
         else if keyword == "whoami" || keyword == "pwd"
         {

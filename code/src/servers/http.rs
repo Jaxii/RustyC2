@@ -59,7 +59,11 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16)
         None => {}
     }
 
-    assert!(double_crlf_offset < http_request_bytes.len());
+    if double_crlf_offset > http_request_bytes.len()
+    {
+        println!("[!] TODO: Offset of the double CRLF is greater than the size of the buffer. Investigate!");
+        return;
+    }
 
     let re: Regex = Regex::new(r"\r\n").unwrap();
     let num_http_headers: usize = re.find_iter(&http_request_bytes[0..double_crlf_offset]).count();

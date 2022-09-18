@@ -829,16 +829,21 @@ pub fn get_task(
                 params![
                     task_id
                 ],
-                |row: &Row| ImplantTask::try_from(row))
+                |row: &Row| ImplantTask::try_from(row)
+            )
+            {
+                Ok(implant_task) =>
                 {
-                    Ok(implant_task) => {
-                        Some(implant_task)
-                    },
-                    Err(_) => None
+                    return Some(implant_task);
+                },
+                Err(_) =>
+                {
+                    return None;
                 }
+            };
         },
-        Err(_) => None
+        Err(_) => {
+            return None;
+        }
     };
-
-    return None;
 }

@@ -356,16 +356,36 @@ impl TryFrom<&Row<'_>> for ImplantTask {
                 Ok::<Vec<u8>, _>(task_output)
             ) =>
             {
-                Ok(ImplantTask {
+                return Ok(ImplantTask {
                     id: task_id,
                     implant_id: task_implant_id,
                     command: task_command,
                     datetime: task_datetime,
                     status: task_status,
                     output: task_output
-                })
+                });
             },
-            (_, _, _, _, _, _) => Err(rusqlite::Error::InvalidQuery)
-        }
+            (
+                Ok::<u64, _>(task_id),
+                Ok::<u16, _>(task_implant_id),
+                Ok::<String, _>(task_command),
+                Ok::<u64, _>(task_datetime),
+                Ok::<ImplantTaskStatus, _>(task_status),
+                Err(_)
+            ) =>
+            {
+                return Ok(ImplantTask {
+                    id: task_id,
+                    implant_id: task_implant_id,
+                    command: task_command,
+                    datetime: task_datetime,
+                    status: task_status,
+                    output: vec![]
+                });
+            },
+            (_, _, _, _, _, _) => {
+                return Err(rusqlite::Error::InvalidQuery)
+            }
+        };
     }
 }
