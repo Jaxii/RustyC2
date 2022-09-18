@@ -814,3 +814,31 @@ pub fn get_http_listener(
         Err(_) => None
     };
 }
+
+pub fn get_task(
+    task_id: u64
+) -> Option<ImplantTask>
+{
+    match Connection::open(DB_NAME)
+    {
+        Ok(db_connection) => {
+            match db_connection.query_row::<ImplantTask, _, _>(
+                "SELECT Id, ImplantId, Command, DateTime, Status, Output
+                FROM ImplantTasks
+                WHERE Id = ?1",
+                params![
+                    task_id
+                ],
+                |row: &Row| ImplantTask::try_from(row))
+                {
+                    Ok(implant_task) => {
+                        Some(implant_task)
+                    },
+                    Err(_) => None
+                }
+        },
+        Err(_) => None
+    };
+
+    return None;
+}

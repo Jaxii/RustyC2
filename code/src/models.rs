@@ -168,6 +168,28 @@ impl FromSql for ListenerProtocol
     }
 }
 
+impl FromSql for ImplantTaskStatus
+{
+    fn column_result(
+        value: ValueRef<'_>
+    ) -> FromSqlResult<Self>
+    {
+        match value.as_str()
+        {
+            Ok(value_str) => {
+                match value_str
+                {
+                    "Completed" => Ok(ImplantTaskStatus::Completed),
+                    "Issued" => Ok(ImplantTaskStatus::Issued),
+                    "Pending" => Ok(ImplantTaskStatus::Pending),
+                    _ => Err(FromSqlError::InvalidType)
+                }
+            },
+            Err(_) => Err(FromSqlError::InvalidType)
+        }
+    }
+}
+
 impl FromStr for ImplantTaskStatus
 {
     type Err = ();
@@ -309,5 +331,41 @@ impl TryFrom<&Row<'_>> for HTTPListener
             (_, _, _) => Err(rusqlite::Error::InvalidQuery),
         }
 
+    }
+}
+impl TryFrom<&Row<'_>> for ImplantTask {
+    type Error = rusqlite::Error;
+
+    fn try_from(sql_row: &Row<'_>) -> Result<ImplantTask, rusqlite::Error>
+    {
+        match (
+            sql_row.get(0),
+            sql_row.get(1),
+            sql_row.get(2),
+            sql_row.get(3),
+            sql_row.get(4),
+            sql_row.get(5)
+        )
+        {
+            (
+                Ok::<u64, _>(task_id),
+                Ok::<u16, _>(task_implant_id),
+                Ok::<String, _>(task_command),
+                Ok::<u64, _>(task_datetime),
+                Ok::<ImplantTaskStatus, _>(task_status),
+                Ok::<Vec<u8>, _>(task_output)
+            ) =>
+            {
+                Ok(ImplantTask {
+                    id: task_id,
+                    implant_id: task_implant_id,
+                    command: task_command,
+                    datetime: task_datetime,
+                    status: task_status,
+                    output: task_output
+                })
+            },
+            (_, _, _, _, _, _) => Err(rusqlite::Error::InvalidQuery)
+        }
     }
 }
