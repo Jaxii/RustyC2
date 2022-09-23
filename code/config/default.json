@@ -3,8 +3,10 @@
     {
         "main_tag": "~"
     },
-    "listener": {
-        "http": {
+    "listener":
+    {
+        "http":
+        {
             "address": "0.0.0.0",
             "port": 4444,
             "pull_method": "GET",
@@ -14,67 +16,80 @@
             "default_page_path": "./static/http/apache_default_page.html",
             "default_error_page_path": "./static/http/apache_default_error_page.html",
             "auth_cookie_regex": "Cookie: PHPSESSID=([A-Fa-f0-9]{32})",
-            "responses": {
-                "default_success": {
+            "responses":
+            {
+                "default_success":
+                {
                     "status_code": 200,
                     "status_code_reason": "OK",
                     "http_version": 1,
-                    "headers": [
+                    "headers":
+                    [
                         {
                             "name": "Server",
                             "value": "Apache"
                         }
                     ]
                 },
-                "default_error": {
+                "default_error":
+                {
                     "status_code": 404,
                     "status_code_reason": "Not Found",
                     "http_version": 1,
-                    "headers": [
+                    "headers":
+                    [
                         {
                             "name": "Server",
                             "value": "Apache"
                         }
                     ]
                 },
-                "implant_pull_success": {
+                "implant_pull_success":
+                {
                     "status_code": 200,
                     "status_code_reason": "OK",
                     "http_version": 1,
-                    "headers": [
+                    "headers":
+                    [
                         {
                             "name": "Server",
                             "value": "Apache"
                         }
                     ]
                 },
-                "implant_pull_failure": {
+                "implant_pull_failure":
+                {
                     "status_code": 404,
                     "status_code_reason": "Not Found",
                     "http_version": 1,
-                    "headers": [
+                    "headers":
+                    [
                         {
                             "name": "Server",
                             "value": "Apache"
                         }
                     ]
                 },
-                "implant_push_success": {
+                "implant_push_success":
+                {
                     "status_code": 200,
                     "status_code_reason": "OK",
                     "http_version": 1,
-                    "headers": [
+                    "headers":
+                    [
                         {
                             "name": "Server",
                             "value": "Apache"
                         }
                     ]
                 },
-                "implant_push_failure": {
+                "implant_push_failure":
+                {
                     "status_code": 404,
                     "status_code_reason": "Not Found",
                     "http_version": 1,
-                    "headers": [
+                    "headers":
+                    [
                         {
                             "name": "Server",
                             "value": "Apache"
@@ -84,22 +99,25 @@
             }
         }
     },
-    "implant": {
+    "implant":
+    {
         "sleep": 5,
-        "tasks": {
+        "tasks":
+        {
             "use_commands_codes": true,
             "use_alt_names": true,
-            "commands": [
+            "commands":
+            [
                 {
                     "name": "whoami",
                     "description": "Display the current username",
-                    "code": "1324",
+                    "code": 57624,
                     "alt_name": "strawberry"
                 },
                 {
                     "name": "pwd",
                     "description": "Display the path of the current working directory",
-                    "code": "43534",
+                    "code": 4771,
                     "alt_name": "lemon"
                 }
             ]
