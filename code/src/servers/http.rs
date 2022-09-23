@@ -17,7 +17,7 @@ use crate::database;
 lazy_static!
 {
     static ref CONFIG: settings::Settings =
-        settings::Settings::new().unwrap();
+        settings::Settings::new();
 }
 
 fn handle_connection(mut stream: TcpStream, listener_id: u16)

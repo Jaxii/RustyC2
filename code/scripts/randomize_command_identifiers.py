@@ -5,9 +5,6 @@ import re
 
 def randomize_config(conf_data):
 
-    print()
-
-
     random_num_list = random.sample(
         range(1, 65535),
         len(conf_data['implant']['tasks']['commands'])
@@ -15,7 +12,7 @@ def randomize_config(conf_data):
 
     try:
         for index, command in enumerate(conf_data['implant']['tasks']['commands']):
-            command['code'] = random_num_list[index]
+            command['code'] = str(random_num_list[index])
     except Exception as e:
         print(f"[!] Failed to randomize the configuration")
         print(f"[!] Stacktrace: {e}")
@@ -39,6 +36,7 @@ def main():
     try:
         with open(input_file) as f:    
             input_conf_data = json.load(f)
+            
     except Exception as e:
         print(f"[!] Error reading the configuration from the input file")
         print(f"[!] Stacktrace: {e}")

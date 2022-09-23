@@ -111,13 +111,13 @@
                 {
                     "name": "whoami",
                     "description": "Display the current username",
-                    "code": 57624,
+                    "code": "59523",
                     "alt_name": "strawberry"
                 },
                 {
                     "name": "pwd",
                     "description": "Display the path of the current working directory",
-                    "code": 4771,
+                    "code": "8958",
                     "alt_name": "lemon"
                 }
             ]

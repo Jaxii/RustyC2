@@ -18,14 +18,16 @@ use crate::{servers::http::start_listener, models::GenericImplant};
 
 lazy_static!
 {
-    static ref CONFIG: settings::Settings =
-        settings::Settings::new().unwrap();
+    static ref CONFIG: settings::Settings = settings::Settings::new();
 }
 
 #[actix_web::main]
 async fn main()
 {
-    database::prepare_db().unwrap();
+    if database::prepare_db().is_err()
+    {
+        println!("[!] Failed to set up the database");
+    }
 
     let mut listeners_threads_channels: Vec<(u16, Sender<ListenerSignal>)> = Vec::new();
 
@@ -34,6 +36,7 @@ async fn main()
         let mut input: String = String::new();
 
         print!("({})> ", &CONFIG.client.main_tag);
+
         std::io::stdout().flush().unwrap();
         std::io::stdin().read_line(&mut input).expect("Failed to read input");
         
