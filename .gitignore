@@ -16,3 +16,5 @@ target/
 # Ignore static assets
 static/
 static/*
+
+output/

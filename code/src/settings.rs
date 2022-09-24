@@ -12,7 +12,8 @@ pub struct Settings
 {
     pub client: ClientSettings,
     pub listener: Listener,
-    pub implant: Implant
+    pub implant: Implant,
+    pub binaries: BinariesPaths
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -91,6 +92,13 @@ pub struct HttpHeader
 {
     pub name: String,
     pub value: String
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct BinariesPaths
+{
+    pub vcvarsall: String,
+    pub msbuild: String
 }
 
 /*
@@ -185,6 +193,11 @@ impl Settings
                         }
                     ]
                 }
+            },
+            binaries: BinariesPaths
+            {
+                vcvarsall: String::new(),
+                msbuild: String::new()
             }
         };
     

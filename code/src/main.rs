@@ -307,9 +307,9 @@ fn process_input_implants(tag: String) -> &'static str
         else if keyword == "generate"
         {
             let listener_id_option: Option<&&str> = split.get(1);
-            if listener_id_option.is_none()
+            if listener_id_option.is_none() || split.len() < 3
             {
-                println!("[+] Usage:\n\tgenerate <listener_id>");
+                println!("[+] Usage:\n\tgenerate <listener_id> <implant_project_name>");
                 continue;
             }
 
@@ -325,10 +325,26 @@ fn process_input_implants(tag: String) -> &'static str
                                 ListenerProtocol::HTTP => {
                                     match database::get_http_listener(listener_id)
                                     {
-                                        Some(http_listener) => {
-                                            implants::generate::generate_http_implant(http_listener);
+                                        Some(http_listener) =>
+                                        {
+                                            match split.get(2)
+                                            {
+                                                Some(implant_project_name) =>
+                                                {
+                                                    implants::generate::generate_http_implant(
+                                                        http_listener,
+                                                        &implant_project_name
+                                                    );
+                                                },
+                                                None =>
+                                                {
+                                                    println!("[!] Failed to get the name of the implant project")
+                                                }
+                                            }
+                                            
                                         },
-                                        None => {
+                                        None =>
+                                        {
                                             println!("[!] Couldn't find the http listener specified")
                                         }
                                     }
