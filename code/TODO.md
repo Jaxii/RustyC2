@@ -1,8 +1,9 @@
 # To-Do
 
-1. [ ] Create an implant
+1. [x] Create an implant
 1. [ ] Allow creating different kinds of listeners (2nd paramter of `create` command, in listeners)
 1. [ ] Implement `set` command for implants
+  - [ ] Allow changing the sleep setting
 1. [ ] Have a working HTTP listener
 1. [ ] Add help menu for each command (e.g. "help create" in listeners)
 1. [x] Implement `list` command for implants

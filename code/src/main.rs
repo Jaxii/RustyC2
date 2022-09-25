@@ -310,6 +310,22 @@ fn process_input_implants(tag: String) -> &'static str
             if listener_id_option.is_none() || split.len() < 3
             {
                 println!("[+] Usage:\n\tgenerate <listener_id> <implant_project_name>");
+                println!("[+] Available implant projects:");
+
+                let mut implant_projects: Vec<String> = Vec::new();
+                implants::generate::list_http_implants(&mut implant_projects);
+                
+                if implant_projects.len() != 0
+                {
+                    for implant_project_name in implant_projects {
+                        println!("\t{}", implant_project_name)
+                    }
+                }
+                else
+                {
+                    println!("[!] No implant projects available at the moment")
+                }
+
                 continue;
             }
 
@@ -333,7 +349,7 @@ fn process_input_implants(tag: String) -> &'static str
                                                 {
                                                     implants::generate::generate_http_implant(
                                                         http_listener,
-                                                        &implant_project_name
+                                                        &implant_project_name.to_ascii_lowercase()
                                                     );
                                                 },
                                                 None =>
@@ -413,6 +429,7 @@ fn process_input_implants(tag: String) -> &'static str
             {
                 println!("[+] Usage:\n\tremove <id>");
                 println!("\tremove <id1>,<id2>");
+
                 continue;
             }
 
