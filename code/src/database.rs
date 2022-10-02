@@ -462,7 +462,7 @@ pub fn update_implant_timestamp(implant_cookie_hash: &str) -> bool
     return flag;
 }
 
-pub fn create_implant_task(implant_id: u16, task_name: &str) -> bool
+pub fn create_implant_task(implant_id: u16, task_name: &str, task_command_data: Option<&Vec<u8>>) -> bool
 {
     let mut flag: bool = false;
     let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
@@ -480,14 +480,21 @@ pub fn create_implant_task(implant_id: u16, task_name: &str) -> bool
         return flag;
     }
 
+    let command_data_bytes: Vec<u8> = match task_command_data
+    {
+        Some(command_data_bytes) => command_data_bytes.clone(),
+        None => vec![]
+    };
+
     let res: Result<usize, rusqlite::Error> = db_connection.execute(
-        "INSERT INTO ImplantTasks(ImplantId, Command, DateTime, Status)
-        VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO ImplantTasks(ImplantId, Command, DateTime, Status, CommandData)
+        VALUES (?1, ?2, ?3, ?4, ?5)",
         params![
             implant_id,
             task_name,
             time_elapsed_now.unwrap().as_secs(),
-            ImplantTaskStatus::Issued.to_string()
+            ImplantTaskStatus::Issued.to_string(),
+            command_data_bytes
         ]
     );
 

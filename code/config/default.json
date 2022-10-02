@@ -112,19 +112,22 @@
                     "name": "whoami",
                     "description": "Display the current username",
                     "code": "64701",
-                    "alt_name": "strawberry"
+                    "alt_name": "strawberry",
+                    "enabled": true
                 },
                 {
                     "name": "pwd",
                     "description": "Display the path of the current working directory",
                     "code": "15133",
-                    "alt_name": "lemon"
+                    "alt_name": "lemon",
+                    "enabled": true
                 },
                 {
-                    "name": "inject",
-                    "description": "Run shellcode in a local/remote process",
+                    "name": "inject-local",
+                    "description": "Run shellcode in a local process",
                     "code": "10849",
-                    "alt_name": "grapes"
+                    "alt_name": "grapes",
+                    "enabled": true
                 }
             ]
         }

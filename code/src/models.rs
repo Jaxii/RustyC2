@@ -1,233 +1,301 @@
 use std::any::Any;
-use std::net::{IpAddr, AddrParseError};
-use std::fmt;
+use std::fmt::{self, Debug};
+use std::net::{AddrParseError, IpAddr};
 use std::num::ParseIntError;
-use std::str::{FromStr, Chars};
+use std::str::{Chars, FromStr};
 
+use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ValueRef};
 use rusqlite::Row;
-use rusqlite::types::{FromSql, FromSqlResult, ValueRef, FromSqlError};
 
 use crate::database;
-pub struct GenericListener
-{
+pub struct GenericListener {
     pub id: u16,
     pub protocol: ListenerProtocol,
     pub status: ListenerStatus,
-    pub data: Box<dyn Any>
+    pub data: Box<dyn Any>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct HTTPListener
-{
+pub struct HTTPListener {
     pub address: IpAddr,
     pub port: u16,
-    pub host: String
+    pub host: String,
 }
 
-pub struct GenericImplant
-{
+pub struct GenericImplant {
     pub id: u16,
     pub listener_id: u16,
     pub last_seen: u64,
-    pub data: Box<dyn Any>
+    pub data: Box<dyn Any>,
 }
 
-pub struct ImplantTask
-{
+pub struct ImplantTask {
     pub id: u64,
     pub implant_id: u16,
     pub command: String,
     pub datetime: u64,
     pub status: ImplantTaskStatus,
     pub output: Vec<u8>,
-    pub command_data: Vec<u8>
+    pub command_data: Vec<u8>,
 }
 
-pub enum ListenerProtocol
-{
+pub enum ListenerProtocol {
     TCP,
     UDP,
     HTTP,
     ICMP,
-    DNS
+    DNS,
 }
 
-pub enum ListenerStatus
-{
+pub enum ListenerStatus {
     Created,
     Active,
-    Suspended
+    Suspended,
 }
 
-pub enum ListenerSignal
-{
-    StopListener
+pub enum ListenerSignal {
+    StopListener,
 }
 
-pub enum ImplantTaskStatus
-{
+pub enum ImplantTaskStatus {
     Issued,
     Pending,
-    Completed
+    Completed,
 }
 
-pub enum ImplantConnectionType
-{
+pub enum ImplantConnectionType {
     Pull,
-    Push
+    Push,
 }
 
-pub trait ManageSettings
-{
+pub enum EnumImplantCommands {
+    Back,
+    Exit,
+    Generate,
+    Help,
+    List,
+    Interact,
+    Kill,
+    Remove,
+    Sleep,
+    Tasks,
+}
+
+pub enum EnumImplantTaskCommands {
+    Back,
+    Exit,
+    Hostname,
+    Info,
+    ListFiles,
+    Whoami,
+    Addresses,
+    Pwd,
+    InjectLocal,
+    InjectRemote,
+    Tasks,
+}
+
+pub trait ManageSettings {
     fn show_settings(&self);
     fn set_option(&mut self, option: &str, value: &str) -> bool;
 }
 
 impl fmt::Display for ListenerStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-       match *self {
-           ListenerStatus::Created => "Created".fmt(f),
-           ListenerStatus::Active => "Active".fmt(f),
-           ListenerStatus::Suspended => "Suspended".fmt(f),
-       }
+        let listener_status: &str = match *self {
+            ListenerStatus::Created => "Created",
+            ListenerStatus::Active => "Active",
+            ListenerStatus::Suspended => "Suspended",
+        };
+
+        return f.write_str(listener_status);
     }
 }
 
 impl fmt::Display for ListenerProtocol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-       match *self {
-            ListenerProtocol::TCP => "TCP".fmt(f),
-            ListenerProtocol::UDP => "UDP".fmt(f),
-            ListenerProtocol::HTTP => "HTTP".fmt(f),
-            ListenerProtocol::ICMP => "ICMP".fmt(f),
-            ListenerProtocol::DNS => "DNS".fmt(f),
-       }
+        let protocol_type: &str = match *self {
+            ListenerProtocol::TCP => "TCP",
+            ListenerProtocol::UDP => "UDP",
+            ListenerProtocol::HTTP => "HTTP",
+            ListenerProtocol::ICMP => "ICMP",
+            ListenerProtocol::DNS => "DNS",
+        };
+
+        return f.write_str(protocol_type);
     }
 }
 
 impl fmt::Display for ImplantTaskStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-       match *self {
-            ImplantTaskStatus::Issued => "Issued".fmt(f),
-            ImplantTaskStatus::Pending => "Pending".fmt(f),
-            ImplantTaskStatus::Completed => "Completed".fmt(f)
-       }
+        let task_status: &str = match *self {
+            ImplantTaskStatus::Issued => "Issued",
+            ImplantTaskStatus::Pending => "Pending",
+            ImplantTaskStatus::Completed => "Completed",
+        };
+
+        return f.write_str(task_status);
     }
 }
 
-impl FromStr for ListenerStatus
-{
+impl fmt::Display for EnumImplantTaskCommands {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let command: &str = match *self {
+            EnumImplantTaskCommands::Whoami => "whoami",
+            EnumImplantTaskCommands::Pwd => "pwd",
+            EnumImplantTaskCommands::InjectLocal => "inject-local",
+            EnumImplantTaskCommands::InjectRemote => "inject-remote",
+            EnumImplantTaskCommands::Hostname => "hostname",
+            EnumImplantTaskCommands::Info => "info",
+            EnumImplantTaskCommands::ListFiles => "ls",
+            EnumImplantTaskCommands::Addresses => "addresses",
+            EnumImplantTaskCommands::Tasks => "tasks",
+            EnumImplantTaskCommands::Back => "back",
+            EnumImplantTaskCommands::Exit => "exit",
+        };
+
+        return f.write_str(command);
+    }
+}
+
+impl fmt::Display for EnumImplantCommands {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let command: &str = match *self {
+            EnumImplantCommands::Back => "back",
+            EnumImplantCommands::Exit => "exit",
+            EnumImplantCommands::Generate => "generate",
+            EnumImplantCommands::Help => "help",
+            EnumImplantCommands::List => "list",
+            EnumImplantCommands::Interact => "interact",
+            EnumImplantCommands::Kill => "kill",
+            EnumImplantCommands::Remove => "remove",
+            EnumImplantCommands::Sleep => "sleep",
+            EnumImplantCommands::Tasks => "tasks",
+        };
+
+        return f.write_str(command);
+    }
+}
+
+impl PartialEq<&str> for EnumImplantTaskCommands {
+    fn eq(&self, other: &&str) -> bool {
+        return *other == self.to_string();
+    }
+}
+
+impl PartialEq<&str> for EnumImplantCommands {
+    fn eq(&self, other: &&str) -> bool {
+        return *other == self.to_string();
+    }
+}
+
+impl FromStr for ListenerStatus {
     type Err = ();
 
     fn from_str(input: &str) -> Result<ListenerStatus, Self::Err> {
         match input {
-            "Created"  => Ok(ListenerStatus::Created),
-            "Active"  => Ok(ListenerStatus::Active),
-            "Suspended"  => Ok(ListenerStatus::Suspended),
-            _      => Err(()),
+            "Created" => Ok(ListenerStatus::Created),
+            "Active" => Ok(ListenerStatus::Active),
+            "Suspended" => Ok(ListenerStatus::Suspended),
+            _ => Err(()),
         }
     }
 }
 
-impl FromStr for ListenerProtocol
-{
+impl FromStr for ListenerProtocol {
     type Err = ();
 
-    fn from_str(input: &str) -> Result<ListenerProtocol, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         match input {
-            "TCP"  => Ok(ListenerProtocol::TCP),
-            "UCP"  => Ok(ListenerProtocol::UDP),
-            "HTTP"  => Ok(ListenerProtocol::HTTP),
-            "ICMP"  => Ok(ListenerProtocol::ICMP),
-            "DNS"  => Ok(ListenerProtocol::DNS),
-            _      => Err(()),
+            "TCP" => Ok(ListenerProtocol::TCP),
+            "UCP" => Ok(ListenerProtocol::UDP),
+            "HTTP" => Ok(ListenerProtocol::HTTP),
+            "ICMP" => Ok(ListenerProtocol::ICMP),
+            "DNS" => Ok(ListenerProtocol::DNS),
+            _ => Err(()),
         }
     }
 }
 
-impl FromSql for ListenerProtocol
-{
-    fn column_result(
-        value: ValueRef<'_>
-    ) -> FromSqlResult<Self>
-    {
-        match value.as_str()
-        {
-            Ok(value_str) => {
-                match value_str
-                {
-                    "TCP" => Ok(ListenerProtocol::TCP),
-                    "UDP" => Ok(ListenerProtocol::UDP),
-                    "HTTP" => Ok(ListenerProtocol::HTTP),
-                    "ICMP" => Ok(ListenerProtocol::ICMP),
-                    "DNS" => Ok(ListenerProtocol::DNS),
-                    _ => Err(FromSqlError::InvalidType)
-                }
+impl FromStr for EnumImplantCommands {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        match input {
+            "back" => Ok(Self::Back),
+            "exit" => Ok(Self::Exit),
+            "generate" => Ok(Self::Generate),
+            "help" => Ok(Self::Help),
+            "interact" => Ok(Self::Interact),
+            "kill" => Ok(Self::Kill),
+            "list" => Ok(Self::List),
+            "remove" => Ok(Self::Remove),
+            "sleep" => Ok(Self::Sleep),
+            _ => Err(()),
+        }
+    }
+}
+
+impl FromSql for ListenerProtocol {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        match value.as_str() {
+            Ok(value_str) => match value_str {
+                "TCP" => Ok(ListenerProtocol::TCP),
+                "UDP" => Ok(ListenerProtocol::UDP),
+                "HTTP" => Ok(ListenerProtocol::HTTP),
+                "ICMP" => Ok(ListenerProtocol::ICMP),
+                "DNS" => Ok(ListenerProtocol::DNS),
+                _ => Err(FromSqlError::InvalidType),
             },
-            Err(_) => Err(FromSqlError::InvalidType)
+            Err(_) => Err(FromSqlError::InvalidType),
         }
     }
 }
 
-impl FromSql for ImplantTaskStatus
-{
-    fn column_result(
-        value: ValueRef<'_>
-    ) -> FromSqlResult<Self>
-    {
-        match value.as_str()
-        {
-            Ok(value_str) => {
-                match value_str
-                {
-                    "Completed" => Ok(ImplantTaskStatus::Completed),
-                    "Issued" => Ok(ImplantTaskStatus::Issued),
-                    "Pending" => Ok(ImplantTaskStatus::Pending),
-                    _ => Err(FromSqlError::InvalidType)
-                }
+impl FromSql for ImplantTaskStatus {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        match value.as_str() {
+            Ok(value_str) => match value_str {
+                "Completed" => Ok(ImplantTaskStatus::Completed),
+                "Issued" => Ok(ImplantTaskStatus::Issued),
+                "Pending" => Ok(ImplantTaskStatus::Pending),
+                _ => Err(FromSqlError::InvalidType),
             },
-            Err(_) => Err(FromSqlError::InvalidType)
+            Err(_) => Err(FromSqlError::InvalidType),
         }
     }
 }
 
-impl FromStr for ImplantTaskStatus
-{
+impl FromStr for ImplantTaskStatus {
     type Err = ();
 
     fn from_str(input: &str) -> Result<ImplantTaskStatus, Self::Err> {
         match input {
-            "Issued"  => Ok(ImplantTaskStatus::Issued),
-            "Pending"  => Ok(ImplantTaskStatus::Pending),
-            "Completed"  => Ok(ImplantTaskStatus::Completed),
-            _      => Err(()),
+            "Issued" => Ok(ImplantTaskStatus::Issued),
+            "Pending" => Ok(ImplantTaskStatus::Pending),
+            "Completed" => Ok(ImplantTaskStatus::Completed),
+            _ => Err(()),
         }
     }
 }
 
-impl HTTPListener
-{
-    pub fn create(address: String, port: u16) -> Result<HTTPListener, Box<dyn std::error::Error>>
-    {
+impl HTTPListener {
+    pub fn create(address: String, port: u16) -> Result<HTTPListener, Box<dyn std::error::Error>> {
         let ip_address: Result<IpAddr, AddrParseError> = address.parse::<IpAddr>();
-        Ok(HTTPListener
-        {
+        Ok(HTTPListener {
             address: ip_address?,
             host: String::from("localhost"),
-            port: port
+            port: port,
         })
     }
 
-    pub fn add_to_database(http_listener: HTTPListener) -> bool
-    {
+    pub fn add_to_database(http_listener: HTTPListener) -> bool {
         return database::insert_http_listener(http_listener);
     }
 }
 
-impl ManageSettings for HTTPListener
-{
-    fn show_settings(&self)
-    {
+impl ManageSettings for HTTPListener {
+    fn show_settings(&self) {
         println!("+------------+----------------------+");
         println!("|  Property  |         Value        |");
         println!("+------------+----------------------+");
@@ -236,23 +304,17 @@ impl ManageSettings for HTTPListener
             ("Protocol", "HTTP".to_string()),
             ("Address", self.address.to_string()),
             ("Port", self.port.to_string()),
-            ("Host", self.host.to_string())
+            ("Host", self.host.to_string()),
         ];
 
-        for x in dict
-        {
-            println!(
-                "| {0:^10} | {1:<20} |",
-                x.0,
-                x.1
-            )
+        for x in dict {
+            println!("| {0:^10} | {1:<20} |", x.0, x.1)
         }
 
         println!("+------------+----------------------+");
     }
 
-    fn set_option(&mut self, option: &str, value: &str) -> bool
-    {
+    fn set_option(&mut self, option: &str, value: &str) -> bool {
         let mut flag: bool = false;
 
         let option_lowercase = option.to_lowercase();
@@ -263,44 +325,36 @@ impl ManageSettings for HTTPListener
         };
 
         // println!("[+] Setting option: {}", option_capitalized.as_str());
-        match option_capitalized.as_str()
-        {
-            "Address" =>
-            {
+        match option_capitalized.as_str() {
+            "Address" => {
                 // println!("[+] Setting listener address to {}", value);
 
                 let res: Result<IpAddr, AddrParseError> = value.parse::<IpAddr>();
-                if ! res.is_err()
-                {
+                if !res.is_err() {
                     self.address = res.unwrap();
                     flag = true;
                 }
-            },
-            "Port" =>
-            {
+            }
+            "Port" => {
                 // println!("[+] Setting listener port to {}", value);
 
                 let res: Result<u16, ParseIntError> = value.parse::<u16>();
-                if ! res.is_err() 
-                {
+                if !res.is_err() {
                     let port: u16 = res.unwrap();
-                    if port > 0
-                    {
+                    if port > 0 {
                         self.port = port;
                         flag = true;
                     }
                 }
-            },
-            "Host" =>
-            {
+            }
+            "Host" => {
                 // println!("[+] Setting listener host to {}", value);
 
-                if value.chars().count() <= 100
-                {
+                if value.chars().count() <= 100 {
                     self.host = value.to_string();
                     flag = true;
                 }
-            },
+            }
             &_ => {}
         }
 
@@ -308,37 +362,31 @@ impl ManageSettings for HTTPListener
     }
 }
 
-impl TryFrom<&Row<'_>> for HTTPListener
-{
+impl TryFrom<&Row<'_>> for HTTPListener {
     type Error = rusqlite::Error;
 
     fn try_from(sql_row: &Row<'_>) -> Result<Self, Self::Error> {
-        match (sql_row.get(0), sql_row.get(1), sql_row.get(2))
-        {
-            (Ok::<String, _>(ip_address_str), Ok::<u16, _>(listener_port), Ok::<String, _>(http_host)) => {
-
-                match ip_address_str.parse::<IpAddr>()
-                {
-                    Ok(ip_address) => {
-                        Ok(HTTPListener {
-                            address: ip_address,
-                            port: listener_port,
-                            host: http_host,
-                        })
-                    },
-                    Err(_) => Err(rusqlite::Error::InvalidQuery)
-                }
+        match (sql_row.get(0), sql_row.get(1), sql_row.get(2)) {
+            (
+                Ok::<String, _>(ip_address_str),
+                Ok::<u16, _>(listener_port),
+                Ok::<String, _>(http_host),
+            ) => match ip_address_str.parse::<IpAddr>() {
+                Ok(ip_address) => Ok(HTTPListener {
+                    address: ip_address,
+                    port: listener_port,
+                    host: http_host,
+                }),
+                Err(_) => Err(rusqlite::Error::InvalidQuery),
             },
             (_, _, _) => Err(rusqlite::Error::InvalidQuery),
         }
-
     }
 }
 impl TryFrom<&Row<'_>> for ImplantTask {
     type Error = rusqlite::Error;
 
-    fn try_from(sql_row: &Row<'_>) -> Result<ImplantTask, rusqlite::Error>
-    {
+    fn try_from(sql_row: &Row<'_>) -> Result<ImplantTask, rusqlite::Error> {
         match (
             sql_row.get(0),
             sql_row.get(1),
@@ -346,9 +394,8 @@ impl TryFrom<&Row<'_>> for ImplantTask {
             sql_row.get(3),
             sql_row.get(4),
             sql_row.get(5),
-            sql_row.get(6)
-        )
-        {
+            sql_row.get(6),
+        ) {
             (
                 Ok::<u64, _>(task_id),
                 Ok::<u16, _>(task_implant_id),
@@ -356,9 +403,8 @@ impl TryFrom<&Row<'_>> for ImplantTask {
                 Ok::<u64, _>(task_datetime),
                 Ok::<ImplantTaskStatus, _>(task_status),
                 Ok::<Vec<u8>, _>(task_output),
-                Ok::<Vec<u8>, _>(task_command_data)
-            ) =>
-            {
+                Ok::<Vec<u8>, _>(task_command_data),
+            ) => {
                 return Ok(ImplantTask {
                     id: task_id,
                     implant_id: task_implant_id,
@@ -366,9 +412,9 @@ impl TryFrom<&Row<'_>> for ImplantTask {
                     datetime: task_datetime,
                     status: task_status,
                     output: task_output,
-                    command_data: task_command_data
+                    command_data: task_command_data,
                 });
-            },
+            }
             (
                 Ok::<u64, _>(task_id),
                 Ok::<u16, _>(task_implant_id),
@@ -376,9 +422,8 @@ impl TryFrom<&Row<'_>> for ImplantTask {
                 Ok::<u64, _>(task_datetime),
                 Ok::<ImplantTaskStatus, _>(task_status),
                 _,
-                _
-            ) =>
-            {
+                _,
+            ) => {
                 return Ok(ImplantTask {
                     id: task_id,
                     implant_id: task_implant_id,
@@ -386,12 +431,10 @@ impl TryFrom<&Row<'_>> for ImplantTask {
                     datetime: task_datetime,
                     status: task_status,
                     output: vec![],
-                    command_data: vec![]
+                    command_data: vec![],
                 });
-            },
-            (_, _, _, _, _, _, _) => {
-                return Err(rusqlite::Error::InvalidQuery)
             }
+            (_, _, _, _, _, _, _) => return Err(rusqlite::Error::InvalidQuery),
         };
     }
 }
