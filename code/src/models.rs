@@ -39,7 +39,8 @@ pub struct ImplantTask
     pub command: String,
     pub datetime: u64,
     pub status: ImplantTaskStatus,
-    pub output: Vec<u8>
+    pub output: Vec<u8>,
+    pub command_data: Vec<u8>
 }
 
 pub enum ListenerProtocol
@@ -344,7 +345,8 @@ impl TryFrom<&Row<'_>> for ImplantTask {
             sql_row.get(2),
             sql_row.get(3),
             sql_row.get(4),
-            sql_row.get(5)
+            sql_row.get(5),
+            sql_row.get(6)
         )
         {
             (
@@ -353,7 +355,8 @@ impl TryFrom<&Row<'_>> for ImplantTask {
                 Ok::<String, _>(task_command),
                 Ok::<u64, _>(task_datetime),
                 Ok::<ImplantTaskStatus, _>(task_status),
-                Ok::<Vec<u8>, _>(task_output)
+                Ok::<Vec<u8>, _>(task_output),
+                Ok::<Vec<u8>, _>(task_command_data)
             ) =>
             {
                 return Ok(ImplantTask {
@@ -362,7 +365,8 @@ impl TryFrom<&Row<'_>> for ImplantTask {
                     command: task_command,
                     datetime: task_datetime,
                     status: task_status,
-                    output: task_output
+                    output: task_output,
+                    command_data: task_command_data
                 });
             },
             (
@@ -371,7 +375,8 @@ impl TryFrom<&Row<'_>> for ImplantTask {
                 Ok::<String, _>(task_command),
                 Ok::<u64, _>(task_datetime),
                 Ok::<ImplantTaskStatus, _>(task_status),
-                Err(_)
+                _,
+                _
             ) =>
             {
                 return Ok(ImplantTask {
@@ -380,10 +385,11 @@ impl TryFrom<&Row<'_>> for ImplantTask {
                     command: task_command,
                     datetime: task_datetime,
                     status: task_status,
-                    output: vec![]
+                    output: vec![],
+                    command_data: vec![]
                 });
             },
-            (_, _, _, _, _, _) => {
+            (_, _, _, _, _, _, _) => {
                 return Err(rusqlite::Error::InvalidQuery)
             }
         };

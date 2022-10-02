@@ -62,6 +62,7 @@ pub fn prepare_db() -> Result<()>
             DateTime        INTEGER NOT NULL,
             Status          VARCHAR(30) NOT NULL,
             Output          BLOB,
+            CommandData     BLOB,
             FOREIGN KEY(ImplantId)
                 REFERENCES Implants(Id)
                 ON DELETE CASCADE
@@ -550,6 +551,11 @@ pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask>
             Ok(v) => v,
             Err(_) => vec![]
         };
+        let task_command_data: Vec<u8> = match row.get(6)
+        {
+            Ok(v) => v,
+            Err(_) => vec![]
+        };
         
         let implant_task: ImplantTask = ImplantTask {
             id: task_id,
@@ -557,7 +563,8 @@ pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask>
             command: task_command,
             datetime: task_date_time,
             status: task_status,
-            output: task_output
+            output: task_output,
+            command_data: task_command_data
         };
 
         tasks.push(implant_task);
@@ -624,6 +631,11 @@ pub fn get_implant_tasks(
             Ok(v) => v,
             Err(_) => vec![]
         };
+        let task_command_data: Vec<u8> = match row.get(6)
+        {
+            Ok(v) => v,
+            Err(_) => vec![]
+        };
         
         let implant_task: ImplantTask = ImplantTask {
             id: task_id,
@@ -631,7 +643,8 @@ pub fn get_implant_tasks(
             command: task_command,
             datetime: task_date_time,
             status: task_status,
-            output: task_output
+            output: task_output,
+            command_data: task_command_data
         };
 
         tasks.push(implant_task);

