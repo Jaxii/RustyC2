@@ -4,6 +4,7 @@ use std::io::Write;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::{Duration, SystemTime, SystemTimeError};
 
+mod api;
 mod database;
 mod implants;
 mod misc;
@@ -30,6 +31,8 @@ async fn main() {
     }
 
     let mut listeners_threads_channels: Vec<(u16, Sender<ListenerSignal>)> = Vec::new();
+
+    std::thread::spawn(move || crate::api::server::start_api_server());
 
     loop {
         let mut input: String = String::new();
@@ -476,7 +479,10 @@ fn list_listeners() -> Vec<GenericListener> {
 
             println!(
                 "| {0:^2} | {1:^10} | {2:^15} | {3:^5} |",
-                listener.id, listener.status, http_listener.address, http_listener.port
+                listener.id,
+                listener.status.to_string(),
+                http_listener.address,
+                http_listener.port
             );
         }
     }
