@@ -2,7 +2,6 @@ use chrono::format::{DelayedFormat, StrftimeItems};
 use lazy_static::{__Deref, lazy_static};
 use std::io::Write;
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::time::{Duration, SystemTime, SystemTimeError};
 
 mod api;
 mod database;
@@ -12,15 +11,11 @@ mod models;
 mod servers;
 mod settings;
 
-use models::{
-    GenericListener, HTTPListener, ImplantTask, ListenerProtocol, ListenerSignal, ManageSettings,
-};
+use models::{HTTPListener, ImplantTask, ListenerProtocol, ListenerSignal, ManageSettings};
 
 use crate::misc::help;
-use crate::models::{
-    EnumImplantCommands, EnumImplantTaskCommands, ImplantTaskStatus, ManageListenerData,
-};
-use crate::{models::GenericImplant, servers::http::start_listener};
+use crate::models::{EnumImplantCommands, EnumImplantTaskCommands, ImplantTaskStatus};
+use crate::servers::http::start_listener;
 
 lazy_static! {
     static ref CONFIG: settings::Settings = settings::Settings::new();
@@ -131,7 +126,7 @@ fn process_input_listeners(
 
             continue;
         } else if keyword == "list" {
-            list_listeners();
+            misc::utils::list_listeners();
         } else if keyword == "remove" {
             if split.get(1).is_none() {
                 println!("[+] Usage:\n\tremove <id>");
@@ -174,7 +169,7 @@ fn process_input_listeners(
                 continue;
             }
 
-            let listeners: Vec<GenericListener> = crate::database::get_listeners();
+            let listeners: Vec<HTTPListener> = database::get_http_listeners();
             let mut listener_id_exists: bool = false;
 
             for generic_listener in listeners {
@@ -278,32 +273,31 @@ fn process_input_implants(tag: String) -> &'static str {
             }
 
             match listener_id_option.unwrap().parse::<u16>() {
-                Ok(listener_id) => match database::get_listener(listener_id) {
-                    Some(generic_listener) => match generic_listener.protocol {
-                        ListenerProtocol::HTTP => {
-                            match database::get_listener_http_data(&generic_listener) {
-                                Some(http_listener) => match split.get(2) {
-                                    Some(implant_project_name) => {
-                                        implants::generate::generate_http_implant(
-                                            http_listener,
-                                            &implant_project_name.to_ascii_lowercase(),
-                                        );
-                                    }
-                                    None => {
-                                        println!(
-                                            "[!] Failed to get the name of the implant project"
-                                        )
-                                    }
-                                },
-                                None => {
-                                    println!("[!] Couldn't retrieve the HTTP data of the listener")
+                Ok(listener_id) => match database::get_listener_protocol(listener_id) {
+                    Some(listener_protocol) => match listener_protocol {
+                        ListenerProtocol::TCP => todo!(),
+                        ListenerProtocol::UDP => todo!(),
+                        ListenerProtocol::HTTP => match database::get_http_listener(listener_id) {
+                            Some(http_listener) => match split.get(2) {
+                                Some(implant_project_name) => {
+                                    implants::generate::generate_http_implant(
+                                        http_listener,
+                                        &implant_project_name.to_ascii_lowercase(),
+                                    );
                                 }
+                                None => {
+                                    println!("[!] Failed to get the name of the implant project")
+                                }
+                            },
+                            None => {
+                                println!("[!] Couldn't retrieve the HTTP data of the listener")
                             }
-                        }
-                        _ => {}
+                        },
+                        ListenerProtocol::ICMP => todo!(),
+                        ListenerProtocol::DNS => todo!(),
                     },
                     None => {
-                        println!("[!] Couldn't find the listener specified")
+                        println!("[!] Couldn't retrieve the protocol of the listener specified")
                     }
                 },
                 Err(_) => {
@@ -352,7 +346,7 @@ fn process_input_implants(tag: String) -> &'static str {
                 None => help::print_help_implants(Some(EnumImplantCommands::Interact)),
             }
         } else if EnumImplantCommands::List == keyword {
-            list_implants();
+            misc::utils::list_implants();
         } else if EnumImplantCommands::Remove == keyword {
             match split.get(1) {
                 Some(first_argument) => {
@@ -463,89 +457,6 @@ fn process_input_listeners_create(tag: String) -> &'static str {
             _ => {}
         }
     }
-}
-
-fn list_listeners() -> Vec<GenericListener> {
-    let listeners: Vec<GenericListener> = crate::database::get_listeners();
-
-    if listeners.is_empty() {
-        println!("[+] No listeners found");
-        return listeners;
-    }
-
-    println!("+----+------------+-----------------+-------+");
-    println!("| ID |   STATUS   |     ADDRESS     |  PORT |");
-    println!("+----+------------+-----------------+-------+");
-
-    for listener in listeners.iter() {
-        if let ListenerProtocol::HTTP = listener.protocol {
-            match listener.retrieve_http_data() {
-                Some(http_listener_data) => {
-                    println!(
-                        "| {0:^2} | {1:^10} | {2:^15} | {3:^5} |",
-                        listener.id,
-                        listener.status.to_string(),
-                        http_listener_data.address,
-                        http_listener_data.port
-                    );
-                }
-                None => continue,
-            }
-            //     listener.data.downcast_ref::<HTTPListener>().unwrap();
-        }
-    }
-
-    println!("+----+------------+-----------------+-------+");
-
-    return listeners;
-}
-
-fn list_implants() {
-    let implants: Vec<GenericImplant> = database::get_implants();
-
-    if implants.is_empty() {
-        println!("[+] No implants found");
-        return;
-    }
-
-    println!("+----+------------+-----------------+");
-    println!("| ID |  Listener  |    Last Seen    |");
-    println!("+----+------------+-----------------+");
-
-    let time_elapsed_now: Result<Duration, SystemTimeError> =
-        SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
-    let time_now_seconds: u64 = time_elapsed_now.as_ref().unwrap().as_secs();
-
-    for implant in implants {
-        let last_seen_string: String = if !time_elapsed_now.is_err() {
-            let time_diff_seconds = time_now_seconds - implant.last_seen;
-
-            if time_diff_seconds <= 59 {
-                format!("{}s ago", time_diff_seconds)
-            } else if time_diff_seconds <= 3599 {
-                format!(
-                    "{}m {}s ago",
-                    time_diff_seconds / 60,
-                    time_diff_seconds % 60
-                )
-            } else {
-                format!(
-                    "{}h {}m ago",
-                    time_diff_seconds / 3600,
-                    (time_diff_seconds % 3600) / 60
-                )
-            }
-        } else {
-            format!("{}", implant.last_seen)
-        };
-
-        println!(
-            "| {0:^2} | {1:^10} | {2:^15} |",
-            implant.id, implant.listener_id, last_seen_string,
-        );
-    }
-
-    println!("+----+------------+-----------------+");
 }
 
 fn process_input_implants_interact(implant_id: u16, tag: String) -> &'static str {

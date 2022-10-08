@@ -2,29 +2,33 @@ use actix_web::HttpResponse;
 use actix_web::{get, HttpRequest};
 
 use crate::database;
-use crate::models::GenericListener;
+use crate::models::HTTPListener;
+
+static APPLICATION_JSON: &str = "application/json";
 
 #[get("/listeners")]
 pub async fn get_listeners() -> HttpResponse {
-    let listeners: Vec<GenericListener> = crate::database::get_listeners();
+    // TODO: join vector with other listener vectors, based on their protocols
+    // TODO: sort based on their ID
+    let http_listeners: Vec<HTTPListener> = database::get_http_listeners();
 
     HttpResponse::Ok()
-        .content_type("application/json")
-        .json(listeners)
+        .content_type(APPLICATION_JSON)
+        .json(http_listeners)
 }
 
 #[get("/listeners/{id}")]
 pub async fn get_listener(req: HttpRequest) -> HttpResponse {
     match req.match_info().query("id").parse::<u16>() {
-        Ok(listener_id) => match database::get_listener(listener_id) {
-            Some(generic_listener) => {
+        Ok(listener_id) => match database::get_http_listener(listener_id) {
+            Some(http_listener) => {
                 return HttpResponse::Ok()
-                    .content_type("application/json")
-                    .json(generic_listener)
+                    .content_type(APPLICATION_JSON)
+                    .json(http_listener);
             }
             None => return HttpResponse::NotFound().await.unwrap(),
         },
-        Err(_error) => return HttpResponse::NotFound().await.unwrap(),
+        Err(_) => return HttpResponse::NotFound().await.unwrap(),
     };
 }
 

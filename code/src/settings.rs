@@ -22,11 +22,11 @@ pub struct ClientSettings {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Listener {
-    pub http: HttpListenerSettings,
+    pub http: HTTPListenerSettings,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct HttpListenerSettings {
+pub struct HTTPListenerSettings {
     pub address: String,
     pub port: u16,
     pub pull_method: String,
@@ -103,7 +103,7 @@ impl Settings {
                 main_tag: String::from("~"),
             },
             listener: Listener {
-                http: HttpListenerSettings {
+                http: HTTPListenerSettings {
                     address: String::from("~"),
                     port: 4444,
                     pull_method: String::from("GET"),

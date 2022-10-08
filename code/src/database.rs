@@ -1,12 +1,12 @@
 use chrono::format::{DelayedFormat, StrftimeItems};
 use rusqlite::{params, params_from_iter, Connection, Result, Row, Statement, ToSql};
+use std::str::FromStr;
 use std::time::{Duration, SystemTime, SystemTimeError};
-use std::{str::FromStr};
 
 use crate::misc;
 use crate::models::{
-    self, GenericImplant, GenericListener, HTTPListener, ImplantTask, ImplantTaskStatus,
-    ListenerProtocol, ListenerStatus, SqlToHttpListenerData,
+    self, GenericImplant, HTTPListener, ImplantTask, ImplantTaskStatus, ListenerProtocol,
+    ListenerStatus,
 };
 
 pub const DB_NAME: &'static str = "db.sqlite3";
@@ -241,43 +241,6 @@ pub fn add_implant(listener_id: u16, implant_cookie_hash: &str) -> bool {
     }
 
     return flag;
-}
-
-pub fn get_listeners() -> Vec<GenericListener> {
-    let mut listeners: Vec<GenericListener> = Vec::new();
-    let db_connection: Connection = Connection::open(DB_NAME).unwrap();
-
-    let mut statement: Statement = db_connection
-        .prepare(
-            "SELECT Id, Protocol, Status, IpAddress, Port, Host
-        FROM Listeners
-        INNER JOIN HTTPListenerData
-            ON Listeners.Id = HTTPListenerData.ListenerId
-        ",
-        )
-        .unwrap();
-
-    let mut rows = statement.query([]).unwrap();
-
-    while let Some(row) = rows.next().unwrap() {
-        let listener_id: u16 = row.get(0).unwrap();
-        let protocol: String = row.get(1).unwrap();
-        let listener_protocol: ListenerProtocol =
-            ListenerProtocol::from_str(protocol.as_str()).unwrap();
-        let status_string: String = row.get(2).unwrap();
-        let listener_status: ListenerStatus =
-            ListenerStatus::from_str(status_string.as_str()).unwrap();
-
-        let generic_listener: GenericListener = GenericListener {
-            id: listener_id,
-            protocol: listener_protocol,
-            status: listener_status,
-        };
-
-        listeners.push(generic_listener);
-    }
-
-    return listeners;
 }
 
 pub fn get_implants() -> Vec<GenericImplant> {
@@ -700,15 +663,16 @@ pub fn get_task(task_id: u64) -> Option<ImplantTask> {
     };
 }
 
-pub fn get_listener_http_data(generic_listener_data: &GenericListener) -> Option<HTTPListener> {
+pub fn get_http_listener(listener_id: u16) -> Option<HTTPListener> {
     match Connection::open(DB_NAME) {
         Ok(db_connection) => {
             match db_connection.query_row::<HTTPListener, _, _>(
-                "SELECT IpAddress, Port, Host
+                "SELECT Id, Protocol, Status, IpAddress, Port, Host
                 FROM HTTPListenerData
+                JOIN Listeners ON Listeners.Id = HTTPListenerData.ListenerId
                 WHERE ListenerId = ?1",
-                params![generic_listener_data.id],
-                |row: &Row| HTTPListener::to_http_listener(row, generic_listener_data),
+                params![listener_id],
+                |row: &Row| HTTPListener::try_from(row),
             ) {
                 Ok(http_listener_data) => return Some(http_listener_data),
                 Err(_) => return None,
@@ -720,26 +684,48 @@ pub fn get_listener_http_data(generic_listener_data: &GenericListener) -> Option
     }
 }
 
-pub fn get_listener(listener_id: u16) -> Option<GenericListener> {
-    match Connection::open(DB_NAME) {
+pub fn get_listener_protocol(listener_id: u16) -> Option<ListenerProtocol> {
+    return match Connection::open(DB_NAME) {
         Ok(db_connection) => {
-            match db_connection.query_row::<GenericListener, _, _>(
-                "SELECT Id, Protocol, Status
+            match db_connection.query_row::<ListenerProtocol, _, _>(
+                "SELECT Protocol
                 FROM Listeners
                 WHERE Id = ?1",
                 params![listener_id],
-                |row: &Row| GenericListener::try_from(row),
+                |row| row.get(0),
             ) {
-                Ok(implant_task) => {
-                    return Some(implant_task);
-                }
-                Err(_) => {
-                    return None;
-                }
-            };
+                Ok(listener_protocol) => Some(listener_protocol),
+                Err(_) => None,
+            }
         }
-        Err(_) => {
-            return None;
-        }
+        Err(_) => None,
     };
+}
+
+pub fn get_http_listeners() -> Vec<HTTPListener> {
+    let mut listeners: Vec<HTTPListener> = Vec::new();
+
+    match Connection::open(DB_NAME) {
+        Ok(db_connection) => {
+            match db_connection.prepare(
+                "SELECT Id, Protocol, Status, IpAddress, Port, Host
+                FROM HTTPListenerData
+                JOIN Listeners ON Listeners.Id = HTTPListenerData.ListenerId",
+            ) {
+                Ok(mut sql_statement) => match sql_statement.query([]) {
+                    Ok(rows) => {
+                        listeners = rows
+                            .mapped(|row: &Row| HTTPListener::try_from(row))
+                            .filter_map(|x| x.ok())
+                            .collect::<Vec<HTTPListener>>();
+                    }
+                    Err(_) => {}
+                },
+                Err(_) => {}
+            }
+        }
+        Err(_) => {}
+    };
+
+    return listeners;
 }

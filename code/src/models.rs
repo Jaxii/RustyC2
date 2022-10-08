@@ -10,16 +10,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::database;
 
-#[derive(Copy, Clone, Debug, Serialize)]
-pub struct GenericListener {
+#[derive(Serialize, Debug)]
+pub struct HTTPListener {
     pub id: u16,
     pub protocol: ListenerProtocol,
     pub status: ListenerStatus,
-}
-
-#[derive(Debug)]
-pub struct HTTPListener {
-    pub generic_data: GenericListener,
     pub address: IpAddr,
     pub port: u16,
     pub host: String,
@@ -98,19 +93,6 @@ pub enum EnumImplantTaskCommands {
     InjectLocal,
     InjectRemote,
     Tasks,
-}
-
-pub trait ManageListenerData {
-    fn retrieve_http_data(&self) -> Option<HTTPListener>;
-}
-
-impl ManageListenerData for GenericListener {
-    fn retrieve_http_data(&self) -> Option<HTTPListener> {
-        match crate::database::get_listener_http_data(self) {
-            Some(v) => Some(v),
-            None => None,
-        }
-    }
 }
 
 pub trait ManageSettings {
@@ -298,21 +280,19 @@ impl FromStr for ImplantTaskStatus {
 }
 
 impl HTTPListener {
-    pub fn create(address: String, port: u16) -> Result<HTTPListener, Box<dyn std::error::Error>> {
+    pub fn create(address: String, port: u16) -> Result<Self, Box<dyn std::error::Error>> {
         let ip_address: Result<IpAddr, AddrParseError> = address.parse::<IpAddr>();
-        Ok(HTTPListener {
+        Ok(Self {
             address: ip_address?,
             host: String::from("localhost"),
             port: port,
-            generic_data: GenericListener {
-                id: 0,
-                protocol: ListenerProtocol::HTTP,
-                status: ListenerStatus::Created,
-            },
+            id: 0,
+            protocol: ListenerProtocol::HTTP,
+            status: ListenerStatus::Created,
         })
     }
 
-    pub fn add_to_database(http_listener: HTTPListener) -> bool {
+    pub fn add_to_database(http_listener: Self) -> bool {
         return database::insert_http_listener(http_listener);
     }
 }
@@ -385,65 +365,43 @@ impl ManageSettings for HTTPListener {
     }
 }
 
-pub trait SqlToHttpListenerData<T>: Sized {
-    type Error;
-    fn to_http_listener(
-        sql_row: T,
-        generic_listener_data: &GenericListener,
-    ) -> Result<Self, Self::Error>;
-}
-
-impl SqlToHttpListenerData<&Row<'_>> for HTTPListener {
+impl TryFrom<&Row<'_>> for HTTPListener {
     type Error = rusqlite::Error;
 
-    fn to_http_listener(
-        sql_row: &Row<'_>,
-        generic_listener_data: &GenericListener,
-    ) -> Result<Self, Self::Error> {
-        match (sql_row.get(0), sql_row.get(1), sql_row.get(2)) {
+    fn try_from(row: &Row<'_>) -> Result<Self, Self::Error> {
+        match (
+            row.get(0),
+            row.get(1),
+            row.get(2),
+            row.get(3),
+            row.get(4),
+            row.get(5),
+        ) {
             (
+                Ok::<u16, _>(listener_id),
+                Ok::<String, _>(listener_protocol),
+                Ok::<String, _>(listener_status),
                 Ok::<String, _>(ip_address_str),
                 Ok::<u16, _>(listener_port),
                 Ok::<String, _>(http_host),
             ) => match ip_address_str.parse::<IpAddr>() {
                 Ok(ip_address) => Ok(HTTPListener {
+                    id: listener_id,
+                    protocol: match ListenerProtocol::from_str(&listener_protocol) {
+                        Ok(v) => v,
+                        Err(_) => return Err(rusqlite::Error::InvalidQuery),
+                    },
+                    status: match ListenerStatus::from_str(&listener_status) {
+                        Ok(v) => v,
+                        Err(_) => return Err(rusqlite::Error::InvalidQuery),
+                    },
                     address: ip_address,
                     port: listener_port,
                     host: http_host,
-                    generic_data: *generic_listener_data,
                 }),
                 Err(_) => Err(rusqlite::Error::InvalidQuery),
             },
-            (_, _, _) => Err(rusqlite::Error::InvalidQuery),
-        }
-    }
-}
-
-impl TryFrom<&Row<'_>> for GenericListener {
-    type Error = rusqlite::Error;
-
-    fn try_from(sql_row: &Row<'_>) -> Result<GenericListener, rusqlite::Error> {
-        match (sql_row.get(0), sql_row.get(1), sql_row.get(2)) {
-            (
-                Ok::<u16, _>(listener_id),
-                Ok::<String, _>(listener_protocol),
-                Ok::<String, _>(listener_status),
-            ) => Ok(GenericListener {
-                id: listener_id,
-                protocol: match ListenerProtocol::from_str(&listener_protocol) {
-                    Ok(v) => v,
-                    Err(_) => {
-                        return Err(rusqlite::Error::InvalidQuery);
-                    }
-                },
-                status: match ListenerStatus::from_str(&listener_status) {
-                    Ok(v) => v,
-                    Err(_) => {
-                        return Err(rusqlite::Error::InvalidQuery);
-                    }
-                },
-            }),
-            (_, _, _) => return Err(rusqlite::Error::InvalidQuery),
+            (_, _, _, _, _, _) => Err(rusqlite::Error::InvalidQuery),
         }
     }
 }

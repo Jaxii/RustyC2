@@ -12,6 +12,6 @@
   -  [ ] HTTPS listener
   -  [ ] ICMP listener
   -  [ ] DNS listener
-1. [ ] Implement an API server
+1. [ ] Improve the API server
 1. [ ] Add auto-complete feature for command parameters
-1. [ ] Add a GUI/Web User interface
+1. [ ] Add a Web interface
