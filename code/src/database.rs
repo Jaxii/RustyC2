@@ -1,15 +1,17 @@
-use std::{net::IpAddr, str::FromStr};
 use chrono::format::{DelayedFormat, StrftimeItems};
-use rusqlite::{params, Connection, Result, Statement, ToSql, params_from_iter, Row};
-use std::time::{SystemTime, SystemTimeError, Duration};
+use rusqlite::{params, params_from_iter, Connection, Result, Row, Statement, ToSql};
+use std::time::{Duration, SystemTime, SystemTimeError};
+use std::{str::FromStr};
 
-use crate::models::{HTTPListener, GenericListener, ListenerStatus, ListenerProtocol, GenericImplant, self, ImplantTask, ImplantTaskStatus};
 use crate::misc;
+use crate::models::{
+    self, GenericImplant, GenericListener, HTTPListener, ImplantTask, ImplantTaskStatus,
+    ListenerProtocol, ListenerStatus, SqlToHttpListenerData,
+};
 
 pub const DB_NAME: &'static str = "db.sqlite3";
 
-pub fn prepare_db() -> Result<()>
-{
+pub fn prepare_db() -> Result<()> {
     let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
     /*
@@ -25,11 +27,11 @@ pub fn prepare_db() -> Result<()>
             Protocol    TEXT NOT NULL,
             Status      TEXT NOT NULL
         )",
-        []
+        [],
     )?;
 
     db_connection.execute(
-        "CREATE TABLE IF NOT EXISTS HttpListenerSettings (
+        "CREATE TABLE IF NOT EXISTS HTTPListenerData (
             ListenerId  INTEGER PRIMARY KEY,
             IpAddress   VARCHAR(50),
             Port        INTEGER,
@@ -38,7 +40,7 @@ pub fn prepare_db() -> Result<()>
                 REFERENCES Listeners(Id)
                 ON DELETE CASCADE
         )",
-        []
+        [],
     )?;
 
     db_connection.execute(
@@ -51,7 +53,7 @@ pub fn prepare_db() -> Result<()>
                 REFERENCES Listeners(Id)
                 ON DELETE CASCADE
         )",
-        []
+        [],
     )?;
 
     db_connection.execute(
@@ -67,7 +69,7 @@ pub fn prepare_db() -> Result<()>
                 REFERENCES Implants(Id)
                 ON DELETE CASCADE
         )",
-        []
+        [],
     )?;
 
     db_connection.execute(
@@ -78,19 +80,18 @@ pub fn prepare_db() -> Result<()>
         params![
             ListenerStatus::Suspended.to_string(),
             ListenerStatus::Active.to_string()
-        ]
+        ],
     )?;
 
     Ok(())
 }
 
-pub fn get_listener_address(id: u16) -> String
-{
+pub fn get_listener_address(id: u16) -> String {
     let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
     let query_result: Result<String, _> = db_connection.query_row(
         "SELECT IpAddress  
-        FROM HttpListenerSettings
+        FROM HTTPListenerData
         WHERE ListenerId = ?1",
         params![id],
         |row| row.get(0),
@@ -99,13 +100,12 @@ pub fn get_listener_address(id: u16) -> String
     return query_result.expect("[!] Couldn't retrieve the address of the listener");
 }
 
-pub fn get_listener_port(id: u16) -> u16
-{
+pub fn get_listener_port(id: u16) -> u16 {
     let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
     let query_result: Result<u16, _> = db_connection.query_row(
         "SELECT Port
-        FROM HttpListenerSettings
+        FROM HTTPListenerData
         WHERE ListenerId = ?1",
         params![id],
         |row| row.get(0),
@@ -114,37 +114,31 @@ pub fn get_listener_port(id: u16) -> u16
     return query_result.expect("[!] Couldn't retrieve the port of the listener");
 }
 
-pub fn insert_http_listener(listener: HTTPListener) -> bool
-{
+pub fn insert_http_listener(listener: HTTPListener) -> bool {
     let mut flag: bool = false;
     let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
     let mut res = db_connection.execute(
         "INSERT INTO Listeners(Protocol,Status)
             VALUES(?1, ?2)",
-        params![
-            "HTTP",
-            models::ListenerStatus::Created.to_string()
-        ]
+        params!["HTTP", models::ListenerStatus::Created.to_string()],
     );
 
-    if !res.is_err()
-    {
+    if !res.is_err() {
         let row_id: i64 = db_connection.last_insert_rowid();
 
         res = db_connection.execute(
-            "INSERT INTO HttpListenerSettings(ListenerId,IpAddress,Port,Host)
+            "INSERT INTO HTTPListenerData(ListenerId,IpAddress,Port,Host)
                 VALUES(?1, ?2, ?3, ?4)",
             params![
                 row_id,
                 listener.address.to_string(),
                 listener.port,
                 listener.host
-            ]
+            ],
         );
 
-        if !res.is_err()
-        {
+        if !res.is_err() {
             flag = true;
         }
     }
@@ -152,29 +146,22 @@ pub fn insert_http_listener(listener: HTTPListener) -> bool
     return flag;
 }
 
-pub fn remove_listener(listener_id: u16) -> bool
-{
+pub fn remove_listener(listener_id: u16) -> bool {
     let mut flag: bool = false;
     let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
     let res: Result<usize, rusqlite::Error> = db_connection.execute(
         "DELETE FROM Listeners
         WHERE Id = ?1 AND Status != ?2",
-        params![
-            listener_id,
-            ListenerStatus::Active.to_string()
-        ]
+        params![listener_id, ListenerStatus::Active.to_string()],
     );
 
-    match res
-    {
-        Ok(num_rows_changed) =>
-        {
-            if num_rows_changed > 0
-            {
+    match res {
+        Ok(num_rows_changed) => {
+            if num_rows_changed > 0 {
                 flag = true
             }
-        },
+        }
         Err(_) => {}
     }
 
@@ -183,18 +170,15 @@ pub fn remove_listener(listener_id: u16) -> bool
 
 pub fn check_if_implant_exists(
     implant_id: Option<u16>,
-    implant_cookie_hash: Option<&str>
-) -> Option<u16>
-{
+    implant_cookie_hash: Option<&str>,
+) -> Option<u16> {
     let db_connection = Connection::open(DB_NAME);
 
-    if db_connection.is_err()
-    {
+    if db_connection.is_err() {
         return None;
     }
 
-    if implant_id.is_some()
-    {
+    if implant_id.is_some() {
         let query_result: Result<u16, _> = db_connection.unwrap().query_row(
             "SELECT Id
             FROM Implants
@@ -203,18 +187,11 @@ pub fn check_if_implant_exists(
             |row| row.get(0),
         );
 
-        return match query_result
-        {
-            Ok(v) => {
-                Some(v)
-            },
-            Err(_) => {
-                None
-            }
-        }
-    }  
-    else if implant_cookie_hash.is_some()
-    {
+        return match query_result {
+            Ok(v) => Some(v),
+            Err(_) => None,
+        };
+    } else if implant_cookie_hash.is_some() {
         let query_result: Result<u16, _> = db_connection.unwrap().query_row(
             "SELECT Id
             FROM Implants
@@ -223,36 +200,28 @@ pub fn check_if_implant_exists(
             |row| row.get(0),
         );
 
-        return match query_result
-        {
-            Ok(v) => {
-                Some(v)
-            },
-            Err(_) => {
-                None
-            }
-        }
+        return match query_result {
+            Ok(v) => Some(v),
+            Err(_) => None,
+        };
     };
 
     return None;
 }
 
-pub fn add_implant(listener_id: u16, implant_cookie_hash: &str) -> bool
-{
+pub fn add_implant(listener_id: u16, implant_cookie_hash: &str) -> bool {
     let mut flag: bool = false;
     let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
-    let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
-    if time_elapsed_now.is_err()
-    {
+    let time_elapsed_now: Result<Duration, SystemTimeError> =
+        SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
+    if time_elapsed_now.is_err() {
         return flag;
     }
 
     let last_seen_unix_timestamp = time_elapsed_now.as_ref().unwrap().as_secs();
-    let formatted_last_seen: DelayedFormat<StrftimeItems> = misc::utils::format_date_time(
-        last_seen_unix_timestamp,
-        "%Y-%m-%d %H:%M:%S"
-    );
+    let formatted_last_seen: DelayedFormat<StrftimeItems> =
+        misc::utils::format_date_time(last_seen_unix_timestamp, "%Y-%m-%d %H:%M:%S");
     println!("[+] Last seen: {}", formatted_last_seen);
 
     let res: Result<usize, rusqlite::Error> = db_connection.execute(
@@ -262,13 +231,11 @@ pub fn add_implant(listener_id: u16, implant_cookie_hash: &str) -> bool
             implant_cookie_hash,
             time_elapsed_now.unwrap().as_secs(),
             listener_id
-        ]
+        ],
     );
 
-    if res.is_ok()
-    {
-        if res.unwrap() == 1
-        {
+    if res.is_ok() {
+        if res.unwrap() == 1 {
             flag = true;
         }
     }
@@ -276,80 +243,67 @@ pub fn add_implant(listener_id: u16, implant_cookie_hash: &str) -> bool
     return flag;
 }
 
-pub fn get_listeners() -> Vec<GenericListener>
-{
+pub fn get_listeners() -> Vec<GenericListener> {
     let mut listeners: Vec<GenericListener> = Vec::new();
     let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
-    let mut statement: Statement = db_connection.prepare(
-        "SELECT Id, Protocol, Status, IpAddress, Port, Host
+    let mut statement: Statement = db_connection
+        .prepare(
+            "SELECT Id, Protocol, Status, IpAddress, Port, Host
         FROM Listeners
-        INNER JOIN HttpListenerSettings
-            ON Listeners.Id = HttpListenerSettings.ListenerId
-        ").unwrap();
+        INNER JOIN HTTPListenerData
+            ON Listeners.Id = HTTPListenerData.ListenerId
+        ",
+        )
+        .unwrap();
 
     let mut rows = statement.query([]).unwrap();
 
-    while let Some(row) = rows.next().unwrap()
-    {
+    while let Some(row) = rows.next().unwrap() {
         let listener_id: u16 = row.get(0).unwrap();
         let protocol: String = row.get(1).unwrap();
-        let listener_protocol: ListenerProtocol = ListenerProtocol::from_str(protocol.as_str()).unwrap();
+        let listener_protocol: ListenerProtocol =
+            ListenerProtocol::from_str(protocol.as_str()).unwrap();
         let status_string: String = row.get(2).unwrap();
-        let listener_status: ListenerStatus = ListenerStatus::from_str(status_string.as_str()).unwrap();
-        let address: String = row.get(3).unwrap();
-        let listener_address: IpAddr = address.parse::<IpAddr>().unwrap();
-        let port: u16 = row.get(4).unwrap();
-        let host: String = row.get(5).unwrap();
+        let listener_status: ListenerStatus =
+            ListenerStatus::from_str(status_string.as_str()).unwrap();
 
-        if let ListenerProtocol::HTTP = listener_protocol
-        {
-            let listener: HTTPListener = HTTPListener
-            {
-                address: listener_address,
-                host: host,
-                port: port
-            };
+        let generic_listener: GenericListener = GenericListener {
+            id: listener_id,
+            protocol: listener_protocol,
+            status: listener_status,
+        };
 
-            let generic_listener: GenericListener = GenericListener
-            {
-                id: listener_id,
-                protocol: ListenerProtocol::HTTP,
-                status: listener_status,
-                data: Box::new(listener)
-            };
-
-            listeners.push(generic_listener);
-        }
+        listeners.push(generic_listener);
     }
 
     return listeners;
 }
 
-pub fn get_implants() -> Vec<GenericImplant>
-{
+pub fn get_implants() -> Vec<GenericImplant> {
     let mut implants: Vec<GenericImplant> = Vec::new();
     let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
-    let mut statement: Statement = db_connection.prepare(
-        "SELECT Id, ListenerId, LastSeen
+    let mut statement: Statement = db_connection
+        .prepare(
+            "SELECT Id, ListenerId, LastSeen
         FROM Implants
-    ").unwrap();
+    ",
+        )
+        .unwrap();
 
     let mut rows = statement.query([]).unwrap();
 
-    while let Some(row) = rows.next().unwrap()
-    {
+    while let Some(row) = rows.next().unwrap() {
         let implant_id: u16 = row.get(0).unwrap();
         let listener_id: u16 = row.get(1).unwrap();
         let last_seen: u64 = row.get(2).unwrap();
 
-        let generic_implant: GenericImplant = GenericImplant
-        {
+        let generic_implant: GenericImplant = GenericImplant {
             id: implant_id,
             listener_id: listener_id,
             last_seen: last_seen,
-            data: Box::new(0)
+            data: Box::new(0),
         };
 
         implants.push(generic_implant);
@@ -358,37 +312,30 @@ pub fn get_implants() -> Vec<GenericImplant>
     return implants;
 }
 
-pub fn remove_implant(implant_id: u16) -> bool
-{
+pub fn remove_implant(implant_id: u16) -> bool {
     let mut flag: bool = false;
     let db_connection: Connection = Connection::open(DB_NAME).unwrap();
 
     let res: Result<usize, rusqlite::Error> = db_connection.execute(
         "DELETE FROM Implants
         WHERE Id = ?1",
-        params![
-            implant_id
-        ]
+        params![implant_id],
     );
 
-    if !res.is_err()
-    {
-        if res.unwrap() != 0
-        {
+    if !res.is_err() {
+        if res.unwrap() != 0 {
             flag = true;
-        }   
+        }
     }
 
     return flag;
 }
 
-pub fn set_listener_status(listener_id: u16, listener_status: ListenerStatus) -> bool
-{
+pub fn set_listener_status(listener_id: u16, listener_status: ListenerStatus) -> bool {
     let mut flag: bool = false;
     let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
-    
-    if conn_result.is_err()
-    {
+
+    if conn_result.is_err() {
         return false;
     }
 
@@ -398,42 +345,33 @@ pub fn set_listener_status(listener_id: u16, listener_status: ListenerStatus) ->
         "UPDATE Listeners
         SET Status = ?1
         WHERE Id = ?2",
-        params![
-            listener_status.to_string(),
-            listener_id
-        ]
+        params![listener_status.to_string(), listener_id],
     );
 
-    if res.is_ok()
-    {
-        if res.unwrap() == 1
-        {
+    if res.is_ok() {
+        if res.unwrap() == 1 {
             flag = true;
         }
-    }
-    else
-    {
+    } else {
         println!("{}", res.unwrap());
     }
-    
+
     return flag;
 }
 
-pub fn update_implant_timestamp(implant_cookie_hash: &str) -> bool
-{
+pub fn update_implant_timestamp(implant_cookie_hash: &str) -> bool {
     let mut flag: bool = false;
     let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
-    
-    if conn_result.is_err()
-    {
+
+    if conn_result.is_err() {
         return flag;
     }
 
     let db_connection: Connection = conn_result.unwrap();
 
-    let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
-    if time_elapsed_now.is_err()
-    {
+    let time_elapsed_now: Result<Duration, SystemTimeError> =
+        SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
+    if time_elapsed_now.is_err() {
         return flag;
     }
 
@@ -441,49 +379,43 @@ pub fn update_implant_timestamp(implant_cookie_hash: &str) -> bool
         "UPDATE Implants
         SET LastSeen = ?1
         WHERE CookieHash = ?2",
-        params![
-            time_elapsed_now.unwrap().as_secs(),
-            implant_cookie_hash
-        ]
+        params![time_elapsed_now.unwrap().as_secs(), implant_cookie_hash],
     );
 
-    if res.is_ok()
-    {
-        if res.unwrap() == 1
-        {
+    if res.is_ok() {
+        if res.unwrap() == 1 {
             flag = true;
         }
-    }
-    else
-    {
+    } else {
         println!("{}", res.unwrap());
     }
-    
+
     return flag;
 }
 
-pub fn create_implant_task(implant_id: u16, task_name: &str, task_command_data: Option<&Vec<u8>>) -> bool
-{
+pub fn create_implant_task(
+    implant_id: u16,
+    task_name: &str,
+    task_command_data: Option<&Vec<u8>>,
+) -> bool {
     let mut flag: bool = false;
     let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
-    
-    if conn_result.is_err()
-    {
+
+    if conn_result.is_err() {
         return flag;
     }
 
     let db_connection: Connection = conn_result.unwrap();
 
-    let time_elapsed_now: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
-    if time_elapsed_now.is_err()
-    {
+    let time_elapsed_now: Result<Duration, SystemTimeError> =
+        SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
+    if time_elapsed_now.is_err() {
         return flag;
     }
 
-    let command_data_bytes: Vec<u8> = match task_command_data
-    {
+    let command_data_bytes: Vec<u8> = match task_command_data {
         Some(command_data_bytes) => command_data_bytes.clone(),
-        None => vec![]
+        None => vec![],
     };
 
     let res: Result<usize, rusqlite::Error> = db_connection.execute(
@@ -495,45 +427,39 @@ pub fn create_implant_task(implant_id: u16, task_name: &str, task_command_data: 
             time_elapsed_now.unwrap().as_secs(),
             ImplantTaskStatus::Issued.to_string(),
             command_data_bytes
-        ]
+        ],
     );
 
-    if res.is_ok()
-    {
-        if res.unwrap() == 1
-        {
+    if res.is_ok() {
+        if res.unwrap() == 1 {
             flag = true;
         }
-    }
-    else
-    {
+    } else {
         println!("{}", res.unwrap());
     }
-    
+
     return flag;
 }
 
-pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask>
-{
+pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask> {
     let mut tasks: Vec<ImplantTask> = Vec::new();
 
     let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
-    
-    if conn_result.is_err()
-    {
+
+    if conn_result.is_err() {
         return tasks;
     }
 
     let db_connection: Connection = conn_result.unwrap();
 
     let mut sql_statement: String = "SELECT Id, ImplantId, Command, DateTime, Status, Output
-        FROM ImplantTasks ".to_string();
+        FROM ImplantTasks "
+        .to_string();
 
     let mut where_condition: String = String::new();
-    let mut vec_params: Vec<String> = Vec::new(); 
+    let mut vec_params: Vec<String> = Vec::new();
 
-    if ignore_completed
-    {
+    if ignore_completed {
         where_condition = "WHERE Status != ?".to_string();
         vec_params.push(ImplantTaskStatus::Completed.to_string());
     }
@@ -545,25 +471,22 @@ pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask>
 
     let mut rows = statement.query(&*sql_params).unwrap();
 
-    while let Some(row) = rows.next().unwrap()
-    {
+    while let Some(row) = rows.next().unwrap() {
         let task_id: u64 = row.get(0).unwrap();
         let implant_id: u16 = row.get(1).unwrap();
         let task_command: String = row.get(2).unwrap();
         let task_date_time: u64 = row.get(3).unwrap();
         let status: String = row.get(4).unwrap();
         let task_status: ImplantTaskStatus = ImplantTaskStatus::from_str(status.as_str()).unwrap();
-        let task_output: Vec<u8> = match row.get(5)
-        {
+        let task_output: Vec<u8> = match row.get(5) {
             Ok(v) => v,
-            Err(_) => vec![]
+            Err(_) => vec![],
         };
-        let task_command_data: Vec<u8> = match row.get(6)
-        {
+        let task_command_data: Vec<u8> = match row.get(6) {
             Ok(v) => v,
-            Err(_) => vec![]
+            Err(_) => vec![],
         };
-        
+
         let implant_task: ImplantTask = ImplantTask {
             id: task_id,
             implant_id: implant_id,
@@ -571,7 +494,7 @@ pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask>
             datetime: task_date_time,
             status: task_status,
             output: task_output,
-            command_data: task_command_data
+            command_data: task_command_data,
         };
 
         tasks.push(implant_task);
@@ -583,67 +506,66 @@ pub fn get_all_tasks(ignore_completed: bool) -> Vec<ImplantTask>
 pub fn get_implant_tasks(
     implant_identifier_name: &str,
     implant_identifier_value: &str,
-    include_statuses: Vec<String>
-) -> Vec<ImplantTask>
-{
+    include_statuses: Vec<String>,
+) -> Vec<ImplantTask> {
     let mut tasks: Vec<ImplantTask> = Vec::new();
     let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
-    
-    if conn_result.is_err()
-    {
+
+    if conn_result.is_err() {
         return tasks;
     }
-    
+
     let db_connection: Connection = conn_result.unwrap();
-    
-    let mut sql_statement: String = "SELECT ImplantTasks.Id, ImplantId, Command, DateTime, ImplantTasks.Status, Output
+
+    let mut sql_statement: String =
+        "SELECT ImplantTasks.Id, ImplantId, Command, DateTime, ImplantTasks.Status, Output
         FROM ImplantTasks
         JOIN Implants
         ON ImplantTasks.ImplantId = Implants.Id
         WHERE Implants.{{ COLUMN_IDENTIFIER }} = ?
             AND ImplantTasks.Status IN ({{ STATUS_PARAMETERS }})
         ORDER BY ImplantTasks.DateTime DESC
-        ".to_string().replace("{{ COLUMN_IDENTIFIER }}", implant_identifier_name);
+        "
+        .to_string()
+        .replace("{{ COLUMN_IDENTIFIER }}", implant_identifier_name);
 
     let mut vec_params: Vec<String> = Vec::new();
     vec_params.push(implant_identifier_value.to_string());
-    
-    let mut status_parameters: String = "?,".repeat(include_statuses.len());
-    
-    if include_statuses.len() > 0
-    {
-        assert!(status_parameters.pop().unwrap() == ",".chars().next().unwrap());
-        sql_statement = sql_statement.replace("{{ STATUS_PARAMETERS }}", status_parameters.as_str());
 
-        for status in include_statuses
-        {
+    let mut status_parameters: String = "?,".repeat(include_statuses.len());
+
+    if include_statuses.len() > 0 {
+        assert!(status_parameters.pop().unwrap() == ",".chars().next().unwrap());
+        sql_statement =
+            sql_statement.replace("{{ STATUS_PARAMETERS }}", status_parameters.as_str());
+
+        for status in include_statuses {
             vec_params.push(status);
         }
     }
 
     let sql_params: Vec<_> = vec_params.iter().map(|x| x as &dyn ToSql).collect();
     let mut statement: Statement = db_connection.prepare(&sql_statement).unwrap();
-    let mut rows = statement.query(params_from_iter(sql_params.iter())).unwrap();
+    let mut rows = statement
+        .query(params_from_iter(sql_params.iter()))
+        .unwrap();
 
-    while let Some(row) = rows.next().unwrap()
-    {
+    while let Some(row) = rows.next().unwrap() {
         let task_id: u64 = row.get(0).unwrap();
         let implant_id: u16 = row.get(1).unwrap();
         let task_command: String = row.get(2).unwrap();
         let task_date_time: u64 = row.get(3).unwrap();
         let status: String = row.get(4).unwrap();
         let task_status: ImplantTaskStatus = ImplantTaskStatus::from_str(status.as_str()).unwrap();
-        let task_output: Vec<u8> = match row.get(5)
-        {
+        let task_output: Vec<u8> = match row.get(5) {
             Ok(v) => v,
-            Err(_) => vec![]
+            Err(_) => vec![],
         };
-        let task_command_data: Vec<u8> = match row.get(6)
-        {
+        let task_command_data: Vec<u8> = match row.get(6) {
             Ok(v) => v,
-            Err(_) => vec![]
+            Err(_) => vec![],
         };
-        
+
         let implant_task: ImplantTask = ImplantTask {
             id: task_id,
             implant_id: implant_id,
@@ -651,25 +573,20 @@ pub fn get_implant_tasks(
             datetime: task_date_time,
             status: task_status,
             output: task_output,
-            command_data: task_command_data
+            command_data: task_command_data,
         };
 
         tasks.push(implant_task);
     }
-    
+
     return tasks;
 }
 
-pub fn update_implant_task_status(
-    task_id: u64,
-    new_status: ImplantTaskStatus
-) -> bool
-{
+pub fn update_implant_task_status(task_id: u64, new_status: ImplantTaskStatus) -> bool {
     let mut flag: bool = false;
     let conn_result: Result<Connection, _> = Connection::open(DB_NAME);
-    
-    if conn_result.is_err()
-    {
+
+    if conn_result.is_err() {
         return false;
     }
 
@@ -679,35 +596,24 @@ pub fn update_implant_task_status(
         "UPDATE ImplantTasks
         SET Status = ?1
         WHERE Id = ?2",
-        params![
-            new_status.to_string(),
-            task_id
-        ]
+        params![new_status.to_string(), task_id],
     );
 
-    if res.is_ok()
-    {
-        if res.unwrap() == 1
-        {
+    if res.is_ok() {
+        if res.unwrap() == 1 {
             flag = true;
         }
-    }
-    else
-    {
+    } else {
         println!("{}", res.unwrap());
     }
-    
+
     return flag;
 }
 
-fn get_implant_task_last_issued(
-    implant_id: u16
-) -> u64
-{
+fn get_implant_task_last_issued(implant_id: u16) -> u64 {
     let mut task_id: u64 = 0;
 
-    match Connection::open(DB_NAME)
-    {
+    match Connection::open(DB_NAME) {
         Ok(db_connection) => {
             let query_result: Result<u64, _> = db_connection.query_row(
                 "SELECT ImplantTasks.Id
@@ -715,44 +621,33 @@ fn get_implant_task_last_issued(
                 WHERE ImplantId = ?1 AND ImplantTasks.Status = ?2
                 ORDER BY ImplantTasks.DateTime ASC
                 LIMIT 1",
-                params![
-                    implant_id,
-                    ImplantTaskStatus::Pending.to_string()
-                ],
+                params![implant_id, ImplantTaskStatus::Pending.to_string()],
                 |row| row.get(0),
             );
-    
-            match query_result
-            {
+
+            match query_result {
                 Ok(db_task_id) => {
                     task_id = db_task_id;
-                },
+                }
                 Err(_) => {}
             }
-        },
+        }
         Err(_) => {}
     }
 
     return task_id;
 }
 
-pub fn update_implant_task_output(
-    implant_id: u16,
-    task_output_bytes: &[u8]
-) -> bool
-{
+pub fn update_implant_task_output(implant_id: u16, task_output_bytes: &[u8]) -> bool {
     let mut flag: bool = false;
-    
+
     let task_id = get_implant_task_last_issued(implant_id);
-    if task_id == 0
-    {
+    if task_id == 0 {
         return false;
     }
 
-    match Connection::open(DB_NAME)
-    {
+    match Connection::open(DB_NAME) {
         Ok(db_connection) => {
-
             let res: Result<usize, rusqlite::Error> = db_connection.execute(
                 "UPDATE ImplantTasks
                 SET Output = ?1, Status = ?2
@@ -761,22 +656,19 @@ pub fn update_implant_task_output(
                     task_output_bytes,
                     ImplantTaskStatus::Completed.to_string(),
                     task_id
-                ]
+                ],
             );
 
-            match res
-            {
+            match res {
                 Ok(v) => {
-                    if v == 1
-                    {
+                    if v == 1 {
                         flag = true;
                     }
-                },
+                }
                 Err(_) => {}
             }
-        },
-        Err(_) => 
-        {
+        }
+        Err(_) => {
             return false;
         }
     }
@@ -784,84 +676,68 @@ pub fn update_implant_task_output(
     return flag;
 }
 
-pub fn get_listener_protocol(
-    listener_id: u16
-) -> Option<ListenerProtocol>
-{
-    return match Connection::open(DB_NAME)
-    {
-        Ok(db_connection) => {
-            match db_connection.query_row::<ListenerProtocol, _, _>(
-                "SELECT Protocol
-                FROM Listeners
-                WHERE Id = ?1",
-                params![listener_id],
-                |row| row.get(0),
-            )
-            {
-                Ok(listener_protocol) => {
-                    Some(listener_protocol)
-                },
-                Err(_) => None
-            }
-        },
-        Err(_) => None
-    };
-}
-
-pub fn get_http_listener(
-    listener_id: u16
-) -> Option<HTTPListener>
-{
-    return match Connection::open(DB_NAME)
-    {
-        Ok(db_connection) => {
-            match db_connection.query_row::<HTTPListener, _, _>(
-                "SELECT IpAddress, Port, Host
-                FROM HttpListenerSettings
-                WHERE HttpListenerSettings.ListenerId = ?1",
-                params![
-                    listener_id
-                ],
-                |row: &Row| HTTPListener::try_from(row))
-                {
-                    Ok(http_listener) => {
-                        Some(http_listener)
-                    },
-                    Err(_) => None
-                }
-        },
-        Err(_) => None
-    };
-}
-
-pub fn get_task(
-    task_id: u64
-) -> Option<ImplantTask>
-{
-    match Connection::open(DB_NAME)
-    {
+pub fn get_task(task_id: u64) -> Option<ImplantTask> {
+    match Connection::open(DB_NAME) {
         Ok(db_connection) => {
             match db_connection.query_row::<ImplantTask, _, _>(
                 "SELECT Id, ImplantId, Command, DateTime, Status, Output
                 FROM ImplantTasks
                 WHERE Id = ?1",
-                params![
-                    task_id
-                ],
-                |row: &Row| ImplantTask::try_from(row)
-            )
-            {
-                Ok(implant_task) =>
-                {
+                params![task_id],
+                |row: &Row| ImplantTask::try_from(row),
+            ) {
+                Ok(implant_task) => {
                     return Some(implant_task);
-                },
-                Err(_) =>
-                {
+                }
+                Err(_) => {
                     return None;
                 }
             };
-        },
+        }
+        Err(_) => {
+            return None;
+        }
+    };
+}
+
+pub fn get_listener_http_data(generic_listener_data: &GenericListener) -> Option<HTTPListener> {
+    match Connection::open(DB_NAME) {
+        Ok(db_connection) => {
+            match db_connection.query_row::<HTTPListener, _, _>(
+                "SELECT IpAddress, Port, Host
+                FROM HTTPListenerData
+                WHERE ListenerId = ?1",
+                params![generic_listener_data.id],
+                |row: &Row| HTTPListener::to_http_listener(row, generic_listener_data),
+            ) {
+                Ok(http_listener_data) => return Some(http_listener_data),
+                Err(_) => return None,
+            }
+        }
+        Err(_) => {
+            return None;
+        }
+    }
+}
+
+pub fn get_listener(listener_id: u16) -> Option<GenericListener> {
+    match Connection::open(DB_NAME) {
+        Ok(db_connection) => {
+            match db_connection.query_row::<GenericListener, _, _>(
+                "SELECT Id, Protocol, Status
+                FROM Listeners
+                WHERE Id = ?1",
+                params![listener_id],
+                |row: &Row| GenericListener::try_from(row),
+            ) {
+                Ok(implant_task) => {
+                    return Some(implant_task);
+                }
+                Err(_) => {
+                    return None;
+                }
+            };
+        }
         Err(_) => {
             return None;
         }

@@ -6,17 +6,20 @@ use std::str::{Chars, FromStr};
 
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ValueRef};
 use rusqlite::Row;
+use serde::{Deserialize, Serialize};
 
 use crate::database;
+
+#[derive(Copy, Clone, Debug, Serialize)]
 pub struct GenericListener {
     pub id: u16,
     pub protocol: ListenerProtocol,
     pub status: ListenerStatus,
-    pub data: Box<dyn Any>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct HTTPListener {
+    pub generic_data: GenericListener,
     pub address: IpAddr,
     pub port: u16,
     pub host: String,
@@ -39,6 +42,7 @@ pub struct ImplantTask {
     pub command_data: Vec<u8>,
 }
 
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum ListenerProtocol {
     TCP,
     UDP,
@@ -47,6 +51,7 @@ pub enum ListenerProtocol {
     DNS,
 }
 
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum ListenerStatus {
     Created,
     Active,
@@ -93,6 +98,19 @@ pub enum EnumImplantTaskCommands {
     InjectLocal,
     InjectRemote,
     Tasks,
+}
+
+pub trait ManageListenerData {
+    fn retrieve_http_data(&self) -> Option<HTTPListener>;
+}
+
+impl ManageListenerData for GenericListener {
+    fn retrieve_http_data(&self) -> Option<HTTPListener> {
+        match crate::database::get_listener_http_data(self) {
+            Some(v) => Some(v),
+            None => None,
+        }
+    }
 }
 
 pub trait ManageSettings {
@@ -286,6 +304,11 @@ impl HTTPListener {
             address: ip_address?,
             host: String::from("localhost"),
             port: port,
+            generic_data: GenericListener {
+                id: 0,
+                protocol: ListenerProtocol::HTTP,
+                status: ListenerStatus::Created,
+            },
         })
     }
 
@@ -362,10 +385,21 @@ impl ManageSettings for HTTPListener {
     }
 }
 
-impl TryFrom<&Row<'_>> for HTTPListener {
+pub trait SqlToHttpListenerData<T>: Sized {
+    type Error;
+    fn to_http_listener(
+        sql_row: T,
+        generic_listener_data: &GenericListener,
+    ) -> Result<Self, Self::Error>;
+}
+
+impl SqlToHttpListenerData<&Row<'_>> for HTTPListener {
     type Error = rusqlite::Error;
 
-    fn try_from(sql_row: &Row<'_>) -> Result<Self, Self::Error> {
+    fn to_http_listener(
+        sql_row: &Row<'_>,
+        generic_listener_data: &GenericListener,
+    ) -> Result<Self, Self::Error> {
         match (sql_row.get(0), sql_row.get(1), sql_row.get(2)) {
             (
                 Ok::<String, _>(ip_address_str),
@@ -376,6 +410,7 @@ impl TryFrom<&Row<'_>> for HTTPListener {
                     address: ip_address,
                     port: listener_port,
                     host: http_host,
+                    generic_data: *generic_listener_data,
                 }),
                 Err(_) => Err(rusqlite::Error::InvalidQuery),
             },
@@ -383,6 +418,36 @@ impl TryFrom<&Row<'_>> for HTTPListener {
         }
     }
 }
+
+impl TryFrom<&Row<'_>> for GenericListener {
+    type Error = rusqlite::Error;
+
+    fn try_from(sql_row: &Row<'_>) -> Result<GenericListener, rusqlite::Error> {
+        match (sql_row.get(0), sql_row.get(1), sql_row.get(2)) {
+            (
+                Ok::<u16, _>(listener_id),
+                Ok::<String, _>(listener_protocol),
+                Ok::<String, _>(listener_status),
+            ) => Ok(GenericListener {
+                id: listener_id,
+                protocol: match ListenerProtocol::from_str(&listener_protocol) {
+                    Ok(v) => v,
+                    Err(_) => {
+                        return Err(rusqlite::Error::InvalidQuery);
+                    }
+                },
+                status: match ListenerStatus::from_str(&listener_status) {
+                    Ok(v) => v,
+                    Err(_) => {
+                        return Err(rusqlite::Error::InvalidQuery);
+                    }
+                },
+            }),
+            (_, _, _) => return Err(rusqlite::Error::InvalidQuery),
+        }
+    }
+}
+
 impl TryFrom<&Row<'_>> for ImplantTask {
     type Error = rusqlite::Error;
 

@@ -17,7 +17,9 @@ use models::{
 };
 
 use crate::misc::help;
-use crate::models::{EnumImplantCommands, EnumImplantTaskCommands, ImplantTaskStatus};
+use crate::models::{
+    EnumImplantCommands, EnumImplantTaskCommands, ImplantTaskStatus, ManageListenerData,
+};
 use crate::{models::GenericImplant, servers::http::start_listener};
 
 lazy_static! {
@@ -276,29 +278,32 @@ fn process_input_implants(tag: String) -> &'static str {
             }
 
             match listener_id_option.unwrap().parse::<u16>() {
-                Ok(listener_id) => match database::get_listener_protocol(listener_id) {
-                    Some(listener_protocol) => match listener_protocol {
-                        ListenerProtocol::HTTP => match database::get_http_listener(listener_id) {
-                            Some(http_listener) => match split.get(2) {
-                                Some(implant_project_name) => {
-                                    implants::generate::generate_http_implant(
-                                        http_listener,
-                                        &implant_project_name.to_ascii_lowercase(),
-                                    );
-                                }
+                Ok(listener_id) => match database::get_listener(listener_id) {
+                    Some(generic_listener) => match generic_listener.protocol {
+                        ListenerProtocol::HTTP => {
+                            match database::get_listener_http_data(&generic_listener) {
+                                Some(http_listener) => match split.get(2) {
+                                    Some(implant_project_name) => {
+                                        implants::generate::generate_http_implant(
+                                            http_listener,
+                                            &implant_project_name.to_ascii_lowercase(),
+                                        );
+                                    }
+                                    None => {
+                                        println!(
+                                            "[!] Failed to get the name of the implant project"
+                                        )
+                                    }
+                                },
                                 None => {
-                                    println!("[!] Failed to get the name of the implant project")
+                                    println!("[!] Couldn't retrieve the HTTP data of the listener")
                                 }
-                            },
-                            None => {
-                                println!("[!] Couldn't find the http listener specified")
                             }
-                        },
+                        }
                         _ => {}
                     },
                     None => {
-                        println!("[!] Couldn't find the type of the listener");
-                        continue;
+                        println!("[!] Couldn't find the listener specified")
                     }
                 },
                 Err(_) => {
@@ -474,16 +479,19 @@ fn list_listeners() -> Vec<GenericListener> {
 
     for listener in listeners.iter() {
         if let ListenerProtocol::HTTP = listener.protocol {
-            let http_listener: &HTTPListener =
-                listener.data.downcast_ref::<HTTPListener>().unwrap();
-
-            println!(
-                "| {0:^2} | {1:^10} | {2:^15} | {3:^5} |",
-                listener.id,
-                listener.status.to_string(),
-                http_listener.address,
-                http_listener.port
-            );
+            match listener.retrieve_http_data() {
+                Some(http_listener_data) => {
+                    println!(
+                        "| {0:^2} | {1:^10} | {2:^15} | {3:^5} |",
+                        listener.id,
+                        listener.status.to_string(),
+                        http_listener_data.address,
+                        http_listener_data.port
+                    );
+                }
+                None => continue,
+            }
+            //     listener.data.downcast_ref::<HTTPListener>().unwrap();
         }
     }
 
