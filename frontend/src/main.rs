@@ -1,6 +1,14 @@
 use actix_web::{middleware, web, HttpServer};
 use tera::Tera;
+
 mod routes;
+mod settings;
+
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref CONFIG: settings::FrontEndSettings = settings::FrontEndSettings::new();
+}
 
 #[actix_web::main]
 pub async fn main() {
@@ -14,7 +22,7 @@ pub async fn main() {
             // register HTTP requests handlers
             .service(routes::dashboard)
     })
-    .bind("0.0.0.0:8080")
+    .bind(format!("{}:{}", CONFIG.bind_host, CONFIG.bind_port))
     .unwrap()
     .run()
     .await

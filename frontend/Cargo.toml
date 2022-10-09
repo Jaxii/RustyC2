@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 actix-web = "4.2.1"
 tera = "1.17.1"
+lazy_static = "1.4"
+config = "0.13.1"
+serde = "1.0.137"
