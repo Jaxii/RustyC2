@@ -12,6 +12,9 @@ lazy_static! {
 
 #[actix_web::main]
 pub async fn main() {
+
+    env_logger::init();
+
     match HttpServer::new(|| {
         let tera = Tera::new("templates/**/*").unwrap();
 

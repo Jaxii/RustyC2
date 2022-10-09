@@ -1,5 +1,6 @@
 use config::FileFormat;
 use config::{Config, File};
+use log;
 use serde::Deserialize;
 
 /*
@@ -33,16 +34,25 @@ impl FrontEndSettings {
         };
 
         match config_builder
-            .add_source(File::new("config/default", FileFormat::Json))
+            .add_source(File::new("config", FileFormat::Json))
             .build()
         {
             Ok(loaded_config) => {
+                log::info!("Config. file found");
+
                 match loaded_config.try_deserialize() {
-                    Ok(new_config) => config = new_config,
-                    Err(_) => {}
+                    Ok(new_config) => {
+                        log::info!("Successful deserialization of the config. file");
+                        config = new_config
+                    },
+                    Err(_) => {
+                        log::error!("Couldn't deserialize the config. file");
+                    }
                 };
             }
-            Err(_) => {}
+            Err(_) => {
+                log::error!("Couldn't find the config. file");
+            }
         };
 
         return config;
