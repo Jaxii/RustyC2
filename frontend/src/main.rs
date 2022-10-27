@@ -12,7 +12,6 @@ lazy_static! {
 
 #[actix_web::main]
 pub async fn main() {
-
     env_logger::init();
 
     match HttpServer::new(|| {
@@ -23,7 +22,9 @@ pub async fn main() {
             .wrap(middleware::Logger::default())
             .app_data(web::Data::new(tera))
             // register HTTP requests handlers
+            .service(routes::root)
             .service(routes::dashboard)
+            .service(routes::terminal)
     })
     .bind(format!("{}:{}", CONFIG.bind_host, CONFIG.bind_port))
     .unwrap()
