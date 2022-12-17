@@ -1,3 +1,0 @@
-[submodule "backend/implants"]
-	path = backend/implants
-	url = git@github.com:rbctee/RustyC2Implants.git
