@@ -3,7 +3,6 @@ use lazy_static::{__Deref, lazy_static};
 use std::io::Write;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
-mod api;
 mod database;
 mod implants;
 mod misc;
@@ -28,8 +27,6 @@ async fn main() {
     }
 
     let mut listeners_threads_channels: Vec<(u16, Sender<ListenerSignal>)> = Vec::new();
-
-    std::thread::spawn(move || crate::api::server::start_api_server());
 
     loop {
         let mut input: String = String::new();
@@ -624,7 +621,7 @@ fn list_tasks(tasks: Vec<ImplantTask>) {
 
         println!(
             "| {0:^4} | {1:^20}+0 | {2:^15} |",
-            task.id, formatted_date_time, task.status
+            task.id, formatted_date_time, task.status.to_string()
         );
     }
 

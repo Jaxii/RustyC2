@@ -36,9 +36,16 @@ fn handle_connection(mut stream: TcpStream, listener_id: u16) {
                     break;
                 } else {
                     http_request_bytes.extend_from_slice(&buffer);
+                    
+                    if v < buffer.len()
+                    {
+                        break;
+                    }
                 }
             }
-            Err(_) => break,
+            Err(_) => {
+                break;
+            }
         }
     }
 

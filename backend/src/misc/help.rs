@@ -253,7 +253,7 @@ pub fn print_help_implants_interaction(implant_command: Option<EnumImplantTaskCo
         println!("{0: <20}{1}", "-------", "-----------");
 
         for item in help_items {
-            println!("{0: <20}{1}", item.0, item.1);
+            println!("{0: <20}{1}", item.0.to_string(), item.1);
         }
 
         println!();

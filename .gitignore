@@ -12,9 +12,14 @@ target/
 
 # Visual Studio files
 .vs/
+.vscode/
 
 # Ignore static assets
 static/
 static/*
 
 output/
+
+# ignore built files
+*.exe
+*.o

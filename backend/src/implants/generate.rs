@@ -151,12 +151,12 @@ pub fn generate_http_implant(http_listener: HTTPListener, implant_project_name: 
 }
 
 #[cfg(target_os = "linux")]
-pub fn generate_http_implant(listener: HTTPListener) -> bool {
+pub fn generate_http_implant(http_listener: HTTPListener, implant_project_name: &str) -> bool {
     let flag: bool = false;
 
     println!(
         "[+] Generating executable for HTTP listener on port {}",
-        listener.port
+        http_listener.port
     );
 
     match std::env::current_exe() {
