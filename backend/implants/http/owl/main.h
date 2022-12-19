@@ -1,3 +1,6 @@
+#define STRINGIZE(x) #x
+#define STRINGIZE_VALUE_OF(x) STRINGIZE(x)
+
 #ifndef REMOTE_HOST_IP_ADDRESS
 #define REMOTE_HOST_IP_ADDRESS "192.168.1.68"
 #endif

