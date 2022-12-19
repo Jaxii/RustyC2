@@ -643,7 +643,7 @@ pub fn get_task(task_id: u64) -> Option<ImplantTask> {
     match Connection::open(DB_NAME) {
         Ok(db_connection) => {
             match db_connection.query_row::<ImplantTask, _, _>(
-                "SELECT Id, ImplantId, Command, DateTime, Status, Output
+                "SELECT Id, ImplantId, Command, DateTime, Status, Output, CommandData
                 FROM ImplantTasks
                 WHERE Id = ?1",
                 params![task_id],

