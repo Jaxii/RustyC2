@@ -221,6 +221,15 @@ int poll_c2()
 
 int parse_http_response(std::vector<char> http_response)
 {
+#ifdef _DEBUG
+    printf("\n[+] HTTP Response:\n");
+    for (char i: http_response)
+    {
+        std::cout << i;
+    }
+    std::cout << std::endl;
+#endif
+
     if (strncmp(&http_response[0], "HTTP/1.1 200", 12) != 0)
     {
 #ifdef _DEBUG

