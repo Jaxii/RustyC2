@@ -1,5 +1,7 @@
 # To-Do
 
+1. [ ] Allow specifying the output path of the implant executable during the generation process
+1. [ ] Allow specifying which implant functions to keep
 1. [ ] Add implant command to execute shellcode
 1. [ ] Implement `set` command for implants
   - [ ] Allow changing the sleep setting
@@ -12,6 +14,4 @@
   -  [ ] HTTPS listener
   -  [ ] ICMP listener
   -  [ ] DNS listener
-1. [ ] Improve the API server
 1. [ ] Add auto-complete feature for command parameters
-1. [ ] Add a Web interface
